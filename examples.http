@@ -1,0 +1,19 @@
+### Health Check
+GET http://127.0.0.1:8000/health
+
+### Create a new Indicator
+POST http://127.0.0.1:8000/indicators
+Content-Type: application/json
+
+{
+    "indicator_type": "IP",
+    "value": "8.8.8.8",
+    "severity": "low",
+    "source": "Google DNS"
+}
+
+### List all Indicators
+GET http://127.0.0.1:8000/indicators
+
+### Get specific Indicator (ID 1)
+GET http://127.0.0.1:8000/indicators/1
