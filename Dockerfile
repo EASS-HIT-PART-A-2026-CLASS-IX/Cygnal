@@ -1,19 +1,26 @@
-FROM python:3.12-slim
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Install uv inside the container
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install curl for healthchecks (optional but recommended)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Install dependencies
-RUN uv sync --frozen
+# Copy the project configuration files
+COPY pyproject.toml uv.lock README.md /app/
 
-# Expose port
+# Copy the application code
+COPY cygnal /app/cygnal
+
+# Install the project's dependencies using uv
+RUN uv sync --frozen --no-install-project --no-dev
+
+# Expose the port the app runs on
 EXPOSE 8000
 
-# Run the server
-CMD ["uv", "run", "uvicorn", "ti_service.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI application
+CMD ["uv", "run", "fastapi", "run", "cygnal/app/main.py", "--host", "0.0.0.0", "--port", "8000"]
