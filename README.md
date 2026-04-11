@@ -24,7 +24,7 @@ uv sync
 ## Running the API Locally
 Start the server with auto-reload:
 ```bash
-uv run uvicorn ti_service.app.main:app --reload
+uv run uvicorn cygnal.app.main:app --reload
 ```
 The interactive Swagger documentation is available at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
@@ -38,12 +38,12 @@ uv run pytest
 ## Running with Docker
 1. **Build the Docker image**:
 ```bash
-docker build -t threat-intel-app .
+docker build -t cygnal-app .
 ```
 
 2. **Run the container**:
 ```bash
-docker run -p 8000:8000 threat-intel-app
+docker run -p 8000:8000 cygnal-app
 ```
 
 ## Development Tools
