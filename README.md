@@ -1,4 +1,4 @@
-# Threat Intelligence Feed API - EX1
+# 🛡️ Cygnal - Threat Intelligence API
 
 This is the core backend microservice for managing cyber threat indicators, developed as part of **EX1 - FastAPI Foundations**.
 
