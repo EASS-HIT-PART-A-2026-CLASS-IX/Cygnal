@@ -35,16 +35,18 @@ Built as part of the **EASS-HIT 2026** course, it enables security analysts to t
 ---
 
 ## 🏗️ Project Structure
+
+```
 Cygnal/
 ├── cygnal/
 │   └── app/
-│       ├── init.py       # Package marker
+│       ├── __init__.py       # Package marker
 │       ├── config.py         # Environment settings
 │       ├── models.py         # Pydantic schemas (IndicatorBase, IndicatorCreate, ThreatIndicator)
 │       ├── repository.py     # In-memory data layer
 │       └── main.py           # FastAPI routes & app entrypoint
 ├── tests/
-│   ├── init.py
+│   ├── __init__.py
 │   ├── conftest.py           # Pytest fixtures (client, clear_repository)
 │   └── test_main.py          # Full test suite
 ├── .env.example              # Environment variable template
@@ -56,6 +58,8 @@ Cygnal/
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
+```
+
 ---
 
 ## 🛠️ Tech Stack
