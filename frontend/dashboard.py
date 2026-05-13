@@ -1,126 +1,179 @@
 import pandas as pd
 import streamlit as st
 
-from frontend.client import list_indicators, create_indicator, delete_indicator
+from frontend.client import (
+    list_indicators,
+    create_indicator,
+    delete_indicator,
+    analyze_indicator_ai,
+    generate_report,
+)
 
 st.set_page_config(page_title="Cygnal", page_icon="🛡️", layout="wide")
-st.info("💡 Tip: Use the filters on the left to narrow down specific threats or export the current view to CSV.")
 st.title("🛡️ Cygnal — Cyber Threat Intelligence")
-st.markdown("Track, tag, and manage cyber threat indicators in real time.")
-
-# ── Sidebar: Filters ─────────────────────────────────────────────
-st.sidebar.title("🔍 Filters")
-indicator_type = st.sidebar.selectbox(
-    "Indicator Type",
-    ["All", "IP", "Domain", "URL", "Hash", "Email"]
-)
-severity = st.sidebar.selectbox(
-    "Severity",
-    ["All", "low", "medium", "high", "critical"]
-)
-
-if st.sidebar.button("🔄 Refresh"):
-    st.cache_data.clear()
-
-@st.cache_data(ttl=60)
-def cached_indicators(it: str, sv: str):
-    return list_indicators(
-        indicator_type=None if it == "All" else it,
-        severity=None if sv == "All" else sv
-    )
-
-try:
-    indicators = cached_indicators(indicator_type, severity)
-except Exception as e:
-    st.error(f"Failed to fetch indicators: {e}")
-    indicators = []
-
-# ── Metrics ──────────────────────────────────────────────────────
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total IOCs", len(indicators))
+st.caption("Track, tag, and manage cyber threat indicators in real time.")
 
 SEVERITY_COLORS = {
     "critical": "🔴",
     "high": "🟠",
     "medium": "🟡",
-    "low": "🔵",
+    "low": "🟢",
 }
 
-crit_count = sum(1 for i in indicators if i.get("severity") == "critical")
-high_count = sum(1 for i in indicators if i.get("severity") == "high")
-active_count = sum(1 for i in indicators if i.get("is_active"))
+INDICATOR_TYPES = ["All", "IP", "Domain", "URL", "Hash", "Email"]
+SEVERITY_LEVELS = ["All", "critical", "high", "medium", "low"]
 
-col2.metric(f"{SEVERITY_COLORS['critical']} Critical", crit_count)
-col3.metric(f"{SEVERITY_COLORS['high']} High", high_count)
-col4.metric("✅ Active", active_count)
+
+@st.cache_data(ttl=30)
+def cached_indicators() -> list[dict]:
+    return list_indicators()
+
+
+# ── Sidebar filters ──────────────────────────────────────────────
+with st.sidebar:
+    st.header("🔍 Filters")
+    selected_type = st.selectbox("Indicator Type", INDICATOR_TYPES)
+    selected_severity = st.selectbox("Severity", SEVERITY_LEVELS)
+    if st.button("🔄 Refresh"):
+        cached_indicators.clear()
+        st.rerun()
+
+# ── Load data ────────────────────────────────────────────────────
+try:
+    all_indicators = cached_indicators()
+except Exception as e:
+    st.error(f"❌ Cannot connect to API: {e}")
+    st.stop()
+
+# ── Apply filters ────────────────────────────────────────────────
+filtered = all_indicators
+if selected_type != "All":
+    filtered = [i for i in filtered if i["indicator_type"] == selected_type]
+if selected_severity != "All":
+    filtered = [i for i in filtered if i["severity"] == selected_severity]
+
+# ── Metrics ──────────────────────────────────────────────────────
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total IOCs", len(all_indicators))
+col2.metric("🔴 Critical", sum(1 for i in all_indicators if i["severity"] == "critical"))
+col3.metric("🟠 High", sum(1 for i in all_indicators if i["severity"] == "high"))
+col4.metric("✅ Active", sum(1 for i in all_indicators if i["is_active"]))
 
 st.divider()
 
 # ── Table ────────────────────────────────────────────────────────
 st.subheader("📋 Indicators")
-if not indicators:
+if not filtered:
     st.info("No indicators found.")
 else:
-    try:
-        df = pd.DataFrame(indicators)
-        if "severity" in df.columns:
-            df["severity"] = df["severity"].map(lambda s: f"{SEVERITY_COLORS.get(s, '')} {s}")
-        if "tags" in df.columns:
-            df["tags"] = df["tags"].map(lambda t: ", ".join(t) if isinstance(t, list) else str(t))
-            
-        desired_columns = ["id", "indicator_type", "value", "severity", "source", "confidence", "tags", "threat_actor", "is_active"]
-        available_columns = [col for col in desired_columns if col in df.columns]
-        
-        st.dataframe(df[available_columns], use_container_width=True, hide_index=True)
-        
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Export to CSV",
-            data=csv,
-            file_name='threat_indicators.csv',
-            mime='text/csv',
-        )
-    except Exception as e:
-        st.error(f"⚠️ Error rendering table: {e}")
-        st.write("Raw data:", indicators)
+    df = pd.DataFrame(filtered)
+    df["severity"] = df["severity"].map(lambda s: f"{SEVERITY_COLORS.get(s, '')} {s}")
+    df["tags"] = df["tags"].map(lambda t: ", ".join(t) if t else "—")
+    st.dataframe(
+        df[["id", "indicator_type", "value", "severity", "source", "confidence", "tags", "threat_actor", "is_active"]],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 st.divider()
 
-# ── Add/Delete Forms ─────────────────────────────────────────────
-with st.expander("➕ Add New Indicator"):
-    with st.form("new_indicator_form", clear_on_submit=True):
-        new_type = st.selectbox("Type", ["IP", "Domain", "URL", "Hash", "Email"])
-        new_value = st.text_input("Value")
-        new_severity = st.selectbox("Severity", ["low", "medium", "high", "critical"])
-        new_source = st.text_input("Source")
-        new_confidence = st.slider("Confidence", 0, 100, 50)
-        new_tags = st.text_input("Tags (comma separated)")
-        new_actor = st.text_input("Threat Actor (optional)")
-        new_active = st.checkbox("Is Active", value=True)
-        
-        if st.form_submit_button("Add Indicator"):
-            if new_value and new_source:
-                tags_list = [t.strip() for t in new_tags.split(",") if t.strip()]
-                create_indicator(
-                    indicator_type=new_type,
-                    value=new_value,
-                    severity=new_severity,
-                    source=new_source,
-                    confidence=new_confidence,
-                    tags=tags_list,
-                    threat_actor=new_actor if new_actor else None,
-                    is_active=new_active
-                )
-                st.success("Indicator added! Click Refresh.")
-            else:
-                st.error("Value and Source are required.")
+# ── Export CSV ───────────────────────────────────────────────────
+if all_indicators:
+    csv = pd.DataFrame(all_indicators).to_csv(index=False)
+    st.download_button(
+        label="📥 Export to CSV",
+        data=csv,
+        file_name="cygnal_indicators.csv",
+        mime="text/csv",
+    )
 
-with st.expander("🗑️ Delete Indicator"):
-    with st.form("delete_indicator_form"):
-        del_id = st.number_input("Indicator ID", min_value=1, step=1)
-        if st.form_submit_button("Delete"):
+st.divider()
+
+# ── AI Analyst ───────────────────────────────────────────────────
+st.subheader("🤖 AI Analyst")
+
+tab1, tab2 = st.tabs(["🔍 Analyze Single IOC", "📊 Generate Report"])
+
+with tab1:
+    if not all_indicators:
+        st.info("No indicators to analyze.")
+    else:
+        options = {f"[{i['indicator_type']}] {i['value']} (id={i['id']})": i["id"] for i in all_indicators}
+        selected_ioc = st.selectbox("Select indicator to analyze", list(options.keys()))
+        if st.button("🔍 Analyze with AI"):
+            with st.spinner("Analyzing..."):
+                try:
+                    result = analyze_indicator_ai(options[selected_ioc])
+                    st.success(f"**Analysis for `{result['value']}`:**")
+                    st.write(result["analysis"])
+                except Exception as e:
+                    st.error(f"❌ Failed: {e}")
+
+with tab2:
+    if st.button("📊 Generate Threat Report"):
+        with st.spinner("Generating report..."):
             try:
-                delete_indicator(del_id)
-                st.success(f"Indicator {del_id} deleted! Click Refresh.")
+                result = generate_report()
+                st.success(f"**Report based on {result['total_indicators']} active indicators:**")
+                st.write(result["report"])
             except Exception as e:
-                st.error(f"Failed to delete: {e}")
+                st.error(f"❌ Failed: {e}")
+
+st.divider()
+
+# ── Add new indicator ────────────────────────────────────────────
+with st.expander("➕ Add New Indicator"):
+    with st.form("create_indicator"):
+        col1, col2 = st.columns(2)
+        with col1:
+            itype = st.selectbox("Type", ["IP", "Domain", "URL", "Hash", "Email"])
+            value = st.text_input("Value", placeholder="e.g. 192.168.1.1")
+            severity = st.selectbox("Severity", ["low", "medium", "high", "critical"])
+            source = st.text_input("Source", placeholder="e.g. AbuseIPDB")
+        with col2:
+            confidence = st.slider("Confidence", 0, 100, 50)
+            tags_input = st.text_input("Tags (comma separated)", placeholder="e.g. ransomware, APT29")
+            threat_actor = st.text_input("Threat Actor (optional)", placeholder="e.g. Lazarus Group")
+            is_active = st.checkbox("Active", value=True)
+
+        submitted = st.form_submit_button("➕ Create Indicator")
+
+    if submitted:
+        if not value or not source:
+            st.warning("⚠️ Value and Source are required.")
+        else:
+            try:
+                tags = [t.strip() for t in tags_input.split(",") if t.strip()]
+                indicator = create_indicator(
+                    indicator_type=itype,
+                    value=value,
+                    severity=severity,
+                    source=source,
+                    confidence=confidence,
+                    tags=tags,
+                    threat_actor=threat_actor or None,
+                    is_active=is_active,
+                )
+                cached_indicators.clear()
+                st.success(f"✅ Created [{indicator['indicator_type']}] {indicator['value']}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Failed: {e}")
+
+st.divider()
+
+# ── Delete indicator ─────────────────────────────────────────────
+with st.expander("🗑️ Delete Indicator"):
+    if not all_indicators:
+        st.info("No indicators to delete.")
+    else:
+        options = {f"[{i['indicator_type']}] {i['value']} (id={i['id']})": i["id"] for i in all_indicators}
+        selected = st.selectbox("Select indicator to delete", list(options.keys()))
+        if st.button("🗑️ Delete"):
+            try:
+                delete_indicator(options[selected])
+                cached_indicators.clear()
+                st.success("✅ Deleted successfully")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Failed: {e}")
