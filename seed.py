@@ -1,8 +1,3 @@
-"""
-Seed script – populates Cygnal with sample threat indicators.
-Run with: uv run python seed.py
-"""
-
 import httpx
 
 BASE_URL = "http://127.0.0.1:8000"
@@ -60,18 +55,20 @@ SAMPLE_INDICATORS = [
     },
 ]
 
-
 def seed():
-    print("🌱 Seeding Cygnal with sample indicators...\n")
-    for indicator in SAMPLE_INDICATORS:
-        response = httpx.post(f"{BASE_URL}/indicators", json=indicator)
-        if response.status_code == 201:
-            data = response.json()
-            print(f"  ✅ [{data['indicator_type']}] {data['value']} (id={data['id']})")
-        else:
-            print(f"  ❌ Failed: {indicator['value']} → {response.status_code}")
+    print(f"🌱 Seeding Cygnal at {BASE_URL} with sample indicators...\n")
+    try:
+        for indicator in SAMPLE_INDICATORS:
+            response = httpx.post(f"{BASE_URL}/indicators", json=indicator)
+            if response.status_code == 201:
+                data = response.json()
+                print(f"   ✅ [{data['indicator_type']}] {data['value']} (id={data['id']})")
+            else:
+                print(f"   ❌ Failed: {indicator['value']} → {response.status_code}")
+    except httpx.ConnectError:
+        print("   ❌ Error: Could not connect to API. Is the server running?")
+    
     print(f"\n✅ Done! {len(SAMPLE_INDICATORS)} indicators seeded.")
-
 
 if __name__ == "__main__":
     seed()
