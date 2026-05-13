@@ -4,6 +4,7 @@ import streamlit as st
 from frontend.client import list_indicators, create_indicator, delete_indicator
 
 st.set_page_config(page_title="Cygnal", page_icon="🛡️", layout="wide")
+st.info("💡 Tip: Use the filters on the left to narrow down specific threats or export the current view to CSV.")
 st.title("🛡️ Cygnal — Cyber Threat Intelligence")
 st.markdown("Track, tag, and manage cyber threat indicators in real time.")
 
