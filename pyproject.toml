@@ -19,9 +19,13 @@ dependencies = [
 
 [tool.uv]
 managed = true
-package = false 
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "anyio>=4.13.0",
 ]

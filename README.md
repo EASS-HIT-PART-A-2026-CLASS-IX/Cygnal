@@ -16,9 +16,11 @@ Built as part of the **EASS-HIT 2026** course, it enables security analysts to t
 - **📊 Confidence Scoring** – Rate indicator reliability from 0 to 100
 - **🏷️ Tagging System** – Tag indicators with labels like `ransomware`, `APT29`, `phishing`
 - **🎯 Threat Actor Attribution** – Link indicators to known threat actors
-- **⏱️ Timeline Tracking** – `first_seen` / `last_seen` timestamps per indicator
+- **⏱️ Timeline Tracking** – `created_at` timestamp per indicator
 - **🧪 Automated Testing** – Full pytest suite with isolated state between tests
 - **🐳 Docker Ready** – Runs identically locally and in a container
+- **📊 Streamlit Dashboard** – Visual interface for managing and exploring IOCs
+- **📥 CSV Export** – One-click export of all indicators
 
 ---
 
@@ -38,21 +40,27 @@ Built as part of the **EASS-HIT 2026** course, it enables security analysts to t
 
 ```
 Cygnal/
-├── cygnal/
-│   └── app/
-│       ├── __init__.py       # Package marker
-│       ├── config.py         # Environment settings
-│       ├── models.py         # Pydantic schemas (IndicatorBase, IndicatorCreate, ThreatIndicator)
-│       ├── repository.py     # In-memory data layer
-│       └── main.py           # FastAPI routes & app entrypoint
+├── backend/
+│   ├── init.py           # Package marker
+│   ├── config.py             # Environment settings
+│   ├── database.py           # SQLite + SQLModel engine
+│   ├── models.py             # SQLModel schemas (Indicator, IndicatorCreate)
+│   ├── repository.py         # Database operations
+│   └── main.py               # FastAPI routes & app entrypoint
+├── frontend/
+│   ├── init.py           # Package marker
+│   ├── client.py             # Typed HTTP client (httpx)
+│   └── dashboard.py          # Streamlit dashboard
 ├── tests/
-│   ├── __init__.py
-│   ├── conftest.py           # Pytest fixtures (client, clear_repository)
-│   └── test_main.py          # Full test suite
+│   ├── init.py
+│   ├── conftest.py           # Pytest fixtures (client, in-memory DB)
+│   ├── test_main.py          # Backend API test suite
+│   └── test_frontend.py      # Frontend client test suite
 ├── .env.example              # Environment variable template
 ├── .gitignore
 ├── .python-version
 ├── Dockerfile
+├── docker-compose.yml
 ├── examples.http             # VS Code REST Client playground
 ├── seed.py                   # Sample data seeder
 ├── pyproject.toml
@@ -67,8 +75,10 @@ Cygnal/
 | Layer | Technology |
 |-------|-----------|
 | Framework | FastAPI |
-| Validation | Pydantic v2 |
-| Storage | In-memory (Python dict) → SQLite in EX3 |
+| Validation | Pydantic v2 + SQLModel |
+| Storage | SQLite |
+| Frontend | Streamlit |
+| HTTP Client | httpx |
 | Package Manager | uv |
 | Testing | pytest + TestClient |
 | Container | Docker |
@@ -92,7 +102,7 @@ uv sync
 ### 3. Run the API locally
 
 ```bash
-uv run uvicorn cygnal.app.main:app --reload
+uv run uvicorn backend.main:app --reload
 ```
 
 The API will be available at: `http://127.0.0.1:8000`  
@@ -105,6 +115,26 @@ Make sure the API is running, then in a separate terminal:
 ```bash
 uv run python seed.py
 ```
+
+---
+
+## 🖥️ Running API + Dashboard Together
+
+Open two separate terminals:
+
+**Terminal 1 – Start the API:**
+```bash
+uv run uvicorn backend.main:app --reload
+```
+
+**Terminal 2 – Start the Streamlit dashboard:**
+```bash
+uv run streamlit run frontend/dashboard.py
+```
+
+Then open your browser at:
+- API docs (Swagger): `http://127.0.0.1:8000/docs`
+- Cygnal Dashboard: `http://localhost:8501`
 
 ---
 
@@ -134,8 +164,9 @@ This project was developed with the assistance of **Claude (Anthropic)**.
 AI tools were used for:
 
 - Designing the project structure and data models
-- Implementing Pydantic v2 schemas with proper field validation
-- Writing the pytest suite with fixture-based state isolation
+- Implementing SQLModel schemas with SQLite persistence
+- Building the Streamlit dashboard and typed HTTP client
+- Writing the pytest suite with fixture-based DB isolation
 - Generating and formatting technical documentation
 
 *All AI-generated code was reviewed, understood, and verified locally before being committed.*

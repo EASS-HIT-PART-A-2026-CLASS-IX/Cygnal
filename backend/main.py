@@ -9,6 +9,7 @@ from backend.database import get_session, create_db_and_tables
 from backend.models import Indicator, IndicatorCreate
 from backend.repository import repo
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Starting up and initializing database...")
@@ -16,13 +17,14 @@ async def lifespan(app: FastAPI):
     yield
     print("💤 Shutting down...")
 
+
 app = FastAPI(title="Cygnal API", lifespan=lifespan)
+
 
 @app.middleware("http")
 async def add_trace_id_and_error_envelope(request: Request, call_next):
     trace_id = request.headers.get("x-trace-id", str(uuid.uuid4()))
     request.state.trace_id = trace_id
-    
     try:
         response = await call_next(request)
         response.headers["x-trace-id"] = trace_id
@@ -34,17 +36,33 @@ async def add_trace_id_and_error_envelope(request: Request, call_next):
             headers={"x-trace-id": trace_id}
         )
 
+
 # --- Endpoints ---
 
-@app.get("/indicators", response_model=List[Indicator])
+@app.get("/health", tags=["diagnostics"])
+def health():
+    return {"status": "ok", "app": "Cygnal"}
+
+
+@app.get("/indicators", response_model=List[Indicator], tags=["threat-intelligence"])
 def read_indicators(skip: int = 0, limit: int = 100, session: Session = Depends(get_session)):
     return repo.get_all(session, skip=skip, limit=limit)
 
-@app.post("/indicators", response_model=Indicator, status_code=201)
+
+@app.post("/indicators", response_model=Indicator, status_code=201, tags=["threat-intelligence"])
 def create_indicator(indicator: IndicatorCreate, session: Session = Depends(get_session)):
     return repo.create(session, indicator)
 
-@app.delete("/indicators/{indicator_id}")
+
+@app.get("/indicators/{indicator_id}", response_model=Indicator, tags=["threat-intelligence"])
+def read_indicator(indicator_id: int, session: Session = Depends(get_session)):
+    indicator = repo.get_by_id(session, indicator_id)
+    if not indicator:
+        raise HTTPException(status_code=404, detail="Indicator not found")
+    return indicator
+
+
+@app.delete("/indicators/{indicator_id}", tags=["threat-intelligence"])
 def delete_indicator(indicator_id: int, session: Session = Depends(get_session)):
     success = repo.delete(session, indicator_id)
     if not success:
