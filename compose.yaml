@@ -1,0 +1,72 @@
+services:
+  api:
+    build: .
+    command: ["uv", "run", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./cygnal.db:/app/cygnal.db
+    environment:
+      - DATABASE_URL=sqlite:///cygnal.db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build: .
+    command: ["uv", "run", "streamlit", "run", "frontend/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - CYGNAL_API_BASE_URL=http://api:8000
+
+  worker:
+    build: .
+    command: ["uv", "run", "python", "scripts/refresh.py"]
+    environment:
+      - DATABASE_URL=sqlite:///cygnal.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./cygnal.db:/app/cygnal.db
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: on-failure
+
+  ai_analyst:
+    build: .
+    command: ["uv", "run", "uvicorn", "ai_analyst.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BACKEND_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
