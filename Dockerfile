@@ -14,7 +14,8 @@ ENV UV_COMPILE_BYTECODE=1
 COPY pyproject.toml uv.lock README.md /app/
 
 # Copy the application code
-COPY cygnal /app/cygnal
+COPY backend /app/backend
+COPY frontend /app/frontend
 
 # Install the project's dependencies using uv
 RUN uv sync --frozen --no-install-project --no-dev
@@ -23,4 +24,4 @@ RUN uv sync --frozen --no-install-project --no-dev
 EXPOSE 8000
 
 # Run the FastAPI application
-CMD ["uv", "run", "uvicorn", "cygnal.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

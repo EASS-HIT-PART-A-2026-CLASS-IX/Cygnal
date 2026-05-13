@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from cygnal.app.main import app
-from cygnal.app.repository import repo
+
+from backend.main import app
+from backend.repository import repo
 
 
 @pytest.fixture(autouse=True)
