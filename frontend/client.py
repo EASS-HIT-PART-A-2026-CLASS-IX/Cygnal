@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from typing import Any
 
@@ -10,12 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class UISettings(BaseSettings):
     api_base_url: str = "http://127.0.0.1:8000"
+    ai_analyst_url: str = "http://127.0.0.1:8001"
     trace_id: str = "ui-streamlit"
 
     model_config = SettingsConfigDict(
         env_prefix="CYGNAL_",
         env_file=".env",
-        extra="ignore"
+        extra="ignore",
     )
 
 
@@ -24,11 +24,19 @@ settings = UISettings()
 
 @lru_cache(maxsize=1)
 def _client() -> httpx.Client:
-    """יצירת קליינט HTTP יחיד לשימוש חוזר."""
     return httpx.Client(
         base_url=settings.api_base_url,
         headers={"X-Trace-Id": settings.trace_id},
         timeout=5.0,
+    )
+
+
+@lru_cache(maxsize=1)
+def _ai_client() -> httpx.Client:
+    return httpx.Client(
+        base_url=settings.ai_analyst_url,
+        headers={"X-Trace-Id": settings.trace_id},
+        timeout=30.0,
     )
 
 
@@ -37,7 +45,7 @@ def list_indicators(
     indicator_type: str | None = None,
     severity: str | None = None,
 ) -> list[dict[str, Any]]:
-    """שליפת רשימת אינדיקטורים עם תמיכה בסינון."""
+    """שליפת רשימת אינדיקטורים עם תמיכה בסינון צד-שרת."""
     params = {}
     if indicator_type and indicator_type != "All":
         params["indicator_type"] = indicator_type
@@ -79,30 +87,51 @@ def create_indicator(
     return response.json()
 
 
+def update_indicator(
+    indicator_id: int,
+    *,
+    severity: str,
+    source: str,
+    confidence: int,
+    tags: list[str],
+    threat_actor: str | None,
+    is_active: bool,
+) -> dict[str, Any]:
+    """עדכון אינדיקטור קיים דרך ה-API."""
+    payload = {
+        "severity": severity,
+        "source": source,
+        "confidence": confidence,
+        "tags": tags,
+        "threat_actor": threat_actor,
+        "is_active": is_active,
+    }
+    response = _client().put(f"/indicators/{indicator_id}", json=payload)
+    response.raise_for_status()
+    return response.json()
+
+
 def delete_indicator(indicator_id: int) -> None:
     """מחיקת אינדיקטור לפי מזהה."""
     response = _client().delete(f"/indicators/{indicator_id}")
     response.raise_for_status()
 
 
-# ── AI Analyst client ─────────────────────────────────────────────
-
-AI_ANALYST_URL = os.getenv("AI_ANALYST_URL", "http://localhost:8001")
-
-
 def analyze_indicator_ai(indicator_id: int) -> dict[str, Any]:
-    """שלח IOC לניתוח AI."""
-    response = httpx.post(
-        f"{AI_ANALYST_URL}/analyze",
-        json={"indicator_id": indicator_id},
-        timeout=30.0,
-    )
-    response.raise_for_status()
-    return response.json()
+    """שליחת אינדיקטור לניתוח AI דרך ה-ai_analyst microservice."""
+    try:
+        response = _ai_client().post(f"/analyze/{indicator_id}")
+        response.raise_for_status()
+        return response.json()
+    except httpx.RequestError as exc:
+        raise RuntimeError(f"Could not connect to AI Analyst at {settings.ai_analyst_url}") from exc
 
 
 def generate_report() -> dict[str, Any]:
-    """קבל דוח סיכום AI של כל ה-IOCs."""
-    response = httpx.get(f"{AI_ANALYST_URL}/report", timeout=30.0)
-    response.raise_for_status()
-    return response.json()
+    """יצירת דוח איומים כולל דרך ה-ai_analyst microservice."""
+    try:
+        response = _ai_client().post("/report")
+        response.raise_for_status()
+        return response.json()
+    except httpx.RequestError as exc:
+        raise RuntimeError(f"Could not connect to AI Analyst at {settings.ai_analyst_url}") from exc

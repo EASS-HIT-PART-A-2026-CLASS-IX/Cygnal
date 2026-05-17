@@ -1,8 +1,12 @@
 from typing import List, Optional
+
 from sqlmodel import Session, select
-from backend.models import Indicator, IndicatorCreate
+
+from backend.models import Indicator, IndicatorCreate, IndicatorUpdate
+
 
 class IndicatorRepository:
+
     def get_all(self, session: Session, skip: int = 0, limit: int = 100) -> List[Indicator]:
         statement = select(Indicator).offset(skip).limit(limit)
         return list(session.exec(statement).all())
@@ -17,6 +21,20 @@ class IndicatorRepository:
         session.refresh(db_indicator)
         return db_indicator
 
+    def update(
+        self, session: Session, indicator_id: int, update_data: IndicatorUpdate
+    ) -> Optional[Indicator]:
+        db_indicator = session.get(Indicator, indicator_id)
+        if not db_indicator:
+            return None
+        update_dict = update_data.model_dump(exclude_unset=True)
+        for field, value in update_dict.items():
+            setattr(db_indicator, field, value)
+        session.add(db_indicator)
+        session.commit()
+        session.refresh(db_indicator)
+        return db_indicator
+
     def delete(self, session: Session, indicator_id: int) -> bool:
         db_indicator = session.get(Indicator, indicator_id)
         if not db_indicator:
@@ -24,5 +42,6 @@ class IndicatorRepository:
         session.delete(db_indicator)
         session.commit()
         return True
+
 
 repo = IndicatorRepository()
