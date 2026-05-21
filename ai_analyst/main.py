@@ -30,7 +30,6 @@ class ReportResponse(BaseModel):
 
 
 def ask_claude(prompt: str) -> str:
-    """שלח prompt ל-Claude API וקבל תשובה."""
     if not ANTHROPIC_API_KEY:
         return "⚠️ No ANTHROPIC_API_KEY set – mock analysis returned."
 
@@ -59,7 +58,6 @@ def health():
 
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["ai"])
 def analyze_indicator(request: AnalyzeRequest):
-    """נתח IOC בודד עם Claude."""
     with httpx.Client() as client:
         resp = client.get(f"{BACKEND_URL}/indicators/{request.indicator_id}")
         if resp.status_code == 404:
@@ -86,7 +84,6 @@ Provide:
 Keep the response concise (3-5 sentences)."""
 
     analysis = ask_claude(prompt)
-
     return AnalyzeResponse(
         indicator_id=indicator["id"],
         value=indicator["value"],
@@ -94,9 +91,8 @@ Keep the response concise (3-5 sentences)."""
     )
 
 
-@app.get("/report", response_model=ReportResponse, tags=["ai"])
+@app.post("/report", response_model=ReportResponse, tags=["ai"])
 def generate_report():
-    """צור דוח סיכום של כל ה-IOCs הפעילים."""
     with httpx.Client() as client:
         resp = client.get(f"{BACKEND_URL}/indicators")
         resp.raise_for_status()
@@ -114,11 +110,9 @@ def generate_report():
             f"- [{i['indicator_type']}] {i['value']} | severity={i['severity']} | confidence={i['confidence']}% | tags={tags}"
         )
 
-    summary = "\n".join(summary_lines)
-
     prompt = f"""You are a cybersecurity analyst. Generate a concise threat intelligence report based on the following active IOCs:
 
-{summary}
+{chr(10).join(summary_lines)}
 
 The report should include:
 1. Executive summary (2-3 sentences)
@@ -129,5 +123,4 @@ The report should include:
 Keep the report professional and actionable."""
 
     report = ask_claude(prompt)
-
     return ReportResponse(total_indicators=len(active), report=report)

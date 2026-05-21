@@ -1,7 +1,7 @@
 # Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Install curl for healthchecks (optional but recommended)
+# Install curl for healthchecks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the container
@@ -16,6 +16,8 @@ COPY pyproject.toml uv.lock README.md /app/
 # Copy the application code
 COPY backend /app/backend
 COPY frontend /app/frontend
+COPY ai_analyst /app/ai_analyst
+COPY scripts /app/scripts
 
 # Install the project's dependencies using uv
 RUN uv sync --frozen --no-install-project --no-dev

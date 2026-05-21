@@ -120,7 +120,7 @@ def delete_indicator(indicator_id: int) -> None:
 def analyze_indicator_ai(indicator_id: int) -> dict[str, Any]:
     """שליחת אינדיקטור לניתוח AI דרך ה-ai_analyst microservice."""
     try:
-        response = _ai_client().post(f"/analyze/{indicator_id}")
+        response = _ai_client().post("/analyze", json={"indicator_id": indicator_id})
         response.raise_for_status()
         return response.json()
     except httpx.RequestError as exc:

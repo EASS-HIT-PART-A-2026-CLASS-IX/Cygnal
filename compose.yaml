@@ -28,6 +28,7 @@ services:
         condition: service_healthy
     environment:
       - CYGNAL_API_BASE_URL=http://api:8000
+      - CYGNAL_AI_ANALYST_URL=http://ai_analyst:8001
 
   worker:
     build: .

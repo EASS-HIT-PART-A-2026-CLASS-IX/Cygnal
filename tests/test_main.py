@@ -1,5 +1,9 @@
+import time
 import pytest
+from datetime import timedelta
 from fastapi.testclient import TestClient
+
+from backend.auth import create_access_token
 
 
 def _get_token(client: TestClient) -> str:
@@ -121,6 +125,30 @@ def test_delete_indicator_unauthorized(client):
     })
     indicator_id = create.json()["id"]
     response = client.delete(f"/indicators/{indicator_id}")
+    assert response.status_code == 401
+
+
+def test_delete_indicator_expired_token(client):
+    """Token that expired 1 second ago must be rejected with 401."""
+    expired_token = create_access_token(
+        data={"sub": "analyst", "role": "analyst"},
+        expires_delta=timedelta(seconds=-1),
+    )
+    create = client.post("/indicators", json={
+        "indicator_type": "IP",
+        "value": "5.5.5.5",
+        "severity": "low",
+        "source": "unit-test",
+        "confidence": 50,
+        "tags": [],
+        "threat_actor": None,
+        "is_active": True,
+    })
+    indicator_id = create.json()["id"]
+    response = client.delete(
+        f"/indicators/{indicator_id}",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
     assert response.status_code == 401
 
 
