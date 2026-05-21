@@ -22,9 +22,12 @@ dependencies = [
     "uvicorn>=0.44.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["backend*", "frontend*", "ai_analyst*", "scripts*"]
+
 [tool.uv]
 managed = true
-package = false
+package = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

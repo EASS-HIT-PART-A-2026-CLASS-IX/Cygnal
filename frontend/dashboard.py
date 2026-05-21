@@ -97,7 +97,7 @@ with st.sidebar:
     search_query = st.text_input("🔎 Free Search", placeholder="Search value, source, actor…")
 
     st.divider()
-    if st.button("🔄 Refresh Data", use_container_width=True):
+    if st.button("🔄 Refresh Data", width="stretch"):
         cached_indicators.clear()
         st.rerun()
 
@@ -171,7 +171,7 @@ if all_indicators:
             plot_bgcolor="rgba(0,0,0,0)",
             font_color="#ccc",
         )
-        st.plotly_chart(fig_sev, use_container_width=True)
+        st.plotly_chart(fig_sev, width="stretch")
 
     with chart_col2:
         st.subheader("🗂️ By Type")
@@ -195,7 +195,7 @@ if all_indicators:
             xaxis=dict(title="", gridcolor="#333"),
             yaxis=dict(title="Count", gridcolor="#333"),
         )
-        st.plotly_chart(fig_type, use_container_width=True)
+        st.plotly_chart(fig_type, width="stretch")
 
     st.divider()
 
@@ -227,7 +227,7 @@ else:
 
     st.dataframe(
         styled,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         height=min(400, 40 + len(display_df) * 38),
     )
@@ -294,7 +294,7 @@ with action_tab1:
             threat_actor = st.text_input("Threat Actor (optional)", placeholder="e.g. Lazarus Group")
             is_active = st.checkbox("Active", value=True)
 
-        submitted = st.form_submit_button("➕ Create Indicator", use_container_width=True)
+        submitted = st.form_submit_button("➕ Create Indicator", width="stretch")
         if submitted:
             if not value or not source:
                 st.warning("⚠️ Value and Source are required.")
@@ -343,7 +343,7 @@ with action_tab2:
                 e_threat_actor = st.text_input("Threat Actor", value=ioc.get("threat_actor") or "")
                 e_is_active = st.checkbox("Active", value=ioc.get("is_active", True))
 
-            edit_submitted = st.form_submit_button("✏️ Update Indicator", use_container_width=True)
+            edit_submitted = st.form_submit_button("✏️ Update Indicator", width="stretch")
             if edit_submitted:
                 try:
                     update_indicator(
