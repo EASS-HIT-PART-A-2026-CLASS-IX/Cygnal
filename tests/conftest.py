@@ -1,9 +1,12 @@
 import pytest
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
 from fastapi.testclient import TestClient
-from backend.main import app
-from backend.database import get_session, create_db_and_tables
-from sqlmodel import Session, create_engine, SQLModel
+from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
+
+from backend.database import get_session
+from backend.main import app
 
 
 @pytest.fixture(name="session")
@@ -26,4 +29,18 @@ def client_fixture(session: Session):
     app.dependency_overrides[get_session] = get_session_override
     client = TestClient(app)
     yield client
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(name="async_client")
+async def async_client_fixture(session: Session):
+    def get_session_override():
+        return session
+
+    app.dependency_overrides[get_session] = get_session_override
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
     app.dependency_overrides.clear()
