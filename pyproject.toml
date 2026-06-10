@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["backend*", "frontend*", "ai_analyst*", "scripts*"]
+include = ["backend*", "frontend*", "ai_analyst*", "worker*", "scripts*"]
 
 [tool.uv]
 managed = true
@@ -39,3 +39,11 @@ dev = [
     "pytest>=9.0.3",
     "anyio>=4.13.0",
 ]
+
+[tool.ruff]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
