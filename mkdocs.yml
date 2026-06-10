@@ -1,0 +1,8 @@
+site_name: Cygnal Documentation
+theme:
+  name: material
+nav:
+  - Home: EX3-notes.md
+  - Service Contract: service-contract.md
+  - Compose Runbook: runbooks/compose.md
+  - Release Checklist: release-checklist.md

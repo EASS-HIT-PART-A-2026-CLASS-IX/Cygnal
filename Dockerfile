@@ -13,14 +13,15 @@ ENV UV_COMPILE_BYTECODE=1
 # Copy the project configuration files
 COPY pyproject.toml uv.lock README.md /app/
 
+# Install dependencies before application code so code-only rebuilds stay fast
+RUN uv sync --frozen --no-install-project --no-dev
+
 # Copy the application code
 COPY backend /app/backend
 COPY frontend /app/frontend
 COPY ai_analyst /app/ai_analyst
+COPY worker /app/worker
 COPY scripts /app/scripts
-
-# Install the project's dependencies using uv
-RUN uv sync --frozen --no-install-project --no-dev
 
 # Expose the port the app runs on
 EXPOSE 8000

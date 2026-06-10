@@ -9,11 +9,18 @@ Content-Type: application/json
     "indicator_type": "IP",
     "value": "8.8.8.8",
     "severity": "low",
-    "source": "Google DNS"
+    "source": "Google DNS",
+    "confidence": 25
 }
 
 ### List all Indicators
 GET http://127.0.0.1:8000/indicators
+
+### Paginated indicators with ETag and total-count headers
+GET http://127.0.0.1:8000/indicators/page?page=1&page_size=5
+
+### CSV export
+GET http://127.0.0.1:8000/indicators/export.csv
 
 ### Get specific Indicator (ID 1)
 GET http://127.0.0.1:8000/indicators/1

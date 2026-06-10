@@ -12,6 +12,30 @@
 
 ---
 
+## Internal Architecture
+
+The repository keeps the course-facing service entrypoints simple while separating
+implementation concerns inside each service:
+
+- `backend/main.py` composes the FastAPI application; routes, middleware,
+  configuration, schemas, database entities, repositories, and services live in
+  dedicated packages.
+- `frontend/dashboard.py` composes authenticated Streamlit navigation; API
+  clients, reusable components, session state, data services, styles, and views
+  are separated. Shared semantic color tokens follow Streamlit's live Dark,
+  Light, and System theme selection.
+- `ai_analyst/main.py` composes the AI microservice; routes, schemas,
+  configuration, and external communication are isolated.
+- `scripts/refresh.py` remains the required course entrypoint while the async
+  worker implementation lives in `worker/`.
+- Tests mirror the service boundaries under `tests/backend`, `tests/frontend`,
+  `tests/ai_analyst`, and `tests/worker`.
+
+This structure preserves the lecturer-facing commands while keeping composition
+roots small and making individual concerns independently testable.
+
+---
+
 ## Worker & Idempotency
 
 The `scripts/refresh.py` worker pulls malicious IPs from **AbuseIPDB** and stores them in the database.
@@ -28,7 +52,17 @@ The fingerprint is stored in Redis with a **24-hour TTL**:
 ioc:seen:<fingerprint> = "1"  (expires in 86400s)
 ```
 
-If the key exists → skip. If not → insert + mark in Redis.
+The worker atomically claims each key with Redis `SET NX EX`. If another worker
+already claimed it, the IOC is skipped. Processing uses bounded concurrency and
+the AbuseIPDB request retries transient HTTP failures with exponential backoff.
+
+`scripts/refresh.py` is the required course-facing entrypoint. It delegates to
+the testable implementation in `worker/refresh.py` and emits one trace line per
+IOC containing the generated trace ID, Redis idempotency key, and outcome:
+
+```text
+INFO worker.refresh trace_id=1adbcde0-0b88-4f55-a945-dcaed04f5190 idempotency_key=ioc:seen:07c63a... result=skipped
+```
 
 ---
 
@@ -50,6 +84,8 @@ uv run uvicorn ai_analyst.main:app --port 8001
 - Hashed credentials with `bcrypt` via `passlib`
 - JWT-protected routes with role checks (`analyst` / `admin`)
 - Token expiry set to 30 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES = 30`)
+- JWTs validate issuer and audience claims
+- JWT secret, issuer, audience, and expiry are environment-backed
 
 ### JWT Flow
 
@@ -72,7 +108,7 @@ To rotate the JWT secret:
    ```bash
    openssl rand -hex 32
    ```
-2. Update `SECRET_KEY` in `backend/auth.py` (or move to `.env` as `CYGNAL_SECRET_KEY`)
+2. Update `JWT_SECRET_KEY` in `.env` or the deployment secret store
 3. Restart the API:
    ```bash
    uv run uvicorn backend.main:app --reload
@@ -83,19 +119,40 @@ To rotate the JWT secret:
 
 ## Enhancement – IOC Summary Report
 
-One-click **CSV export** and **AI-generated summary** available from the Streamlit dashboard.
+One-click **CSV export** and **AI-generated summary** are available from the
+Streamlit dashboard. The API also exposes filtered CSV export and a paginated,
+ETag-enabled release-contract endpoint.
 
 ---
 
 ## Redis Trace
 
-Example Redis keys after a refresh run:
+Actual Redis keys captured from the Compose stack on 10 June 2026:
 
 ```text
-ioc:seen:a3f2c1... (TTL: 86234s)
-ioc:seen:b7d4e2... (TTL: 85901s)
-rate:127.0.0.1:/indicators (TTL: 47s)
+ioc:seen:07c63a564a9c290cdc88de74b6a27e7fc554d36decb88a274ef6de710978fe59
+ioc:seen:dd73d89974f9ac2770eaa09906f8e5d419d45c9bdb4927bbe06f3c540ecd1f05
+rate:127.0.0.1:/health:29685268
+rate:testclient:/indicators/page:29685268
 ```
+
+## Course Deliverables
+
+- Compose launches API, dashboard, AI analyst, Redis, and the async worker.
+- The worker has bounded concurrency, retries, atomic Redis idempotency, and
+  `pytest.mark.anyio` tests.
+- Redis-backed rate limiting emits the documented headers.
+- Hashed credentials and issuer/audience/expiry-aware JWT role checks protect
+  delete and admin deactivation routes.
+- CSV export, filtering, AI reports, pagination, and ETags are covered by tests.
+- Dark, Light, and browser-controlled System themes are covered by frontend
+  regression tests.
+- `.github/workflows/ci.yaml` and `docs/release-checklist.md` document pytest,
+  coverage, Schemathesis, Ruff, mypy, MkDocs/pdoc, and FastMCP gates. The
+  maintained `pdoc` package is used because legacy `pdocs` is incompatible with
+  Python 3.12.
+- Schemathesis intentionally fuzzes read-only GET contracts in CI so contract
+  testing cannot mutate or delete grader data.
 
 ---
 
