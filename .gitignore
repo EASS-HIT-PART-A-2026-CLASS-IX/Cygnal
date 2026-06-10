@@ -4,6 +4,12 @@ __pycache__/
 *$py.class
 .venv/
 .env
+.pytest_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+site/
+schemathesis-report/
 
 *.db
 *.db-journal
