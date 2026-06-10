@@ -4,22 +4,8 @@ from functools import lru_cache
 from typing import Any
 
 import httpx
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class UISettings(BaseSettings):
-    api_base_url: str = "http://127.0.0.1:8000"
-    ai_analyst_url: str = "http://127.0.0.1:8001"
-    trace_id: str = "ui-streamlit"
-
-    model_config = SettingsConfigDict(
-        env_prefix="CYGNAL_",
-        env_file=".env",
-        extra="ignore",
-    )
-
-
-settings = UISettings()
+from frontend.api.config import settings
 
 
 @lru_cache(maxsize=1)
@@ -38,6 +24,26 @@ def _ai_client() -> httpx.Client:
         headers={"X-Trace-Id": settings.trace_id},
         timeout=30.0,
     )
+
+
+def login(username: str, password: str) -> str:
+    """Authenticate with the API and return a JWT access token."""
+    response = _client().post(
+        "/auth/login",
+        data={"username": username, "password": password},
+    )
+    response.raise_for_status()
+    return response.json()["access_token"]
+
+
+def get_current_user(token: str) -> dict[str, str]:
+    """Return the authenticated user's validated identity and role."""
+    response = _client().get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def list_indicators(
@@ -111,9 +117,21 @@ def update_indicator(
     return response.json()
 
 
-def delete_indicator(indicator_id: int) -> None:
+def delete_indicator(indicator_id: int, token: str) -> None:
     """מחיקת אינדיקטור לפי מזהה."""
-    response = _client().delete(f"/indicators/{indicator_id}")
+    response = _client().delete(
+        f"/indicators/{indicator_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    response.raise_for_status()
+
+
+def deactivate_indicator(indicator_id: int, token: str) -> None:
+    """Deactivate an indicator through the admin-only API route."""
+    response = _client().post(
+        f"/indicators/{indicator_id}/deactivate",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     response.raise_for_status()
 
 
