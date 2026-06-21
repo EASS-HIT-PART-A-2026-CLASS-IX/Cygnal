@@ -11,7 +11,9 @@ from backend.models.enums import IndicatorType, Severity
 class Indicator(SQLModel, table=True):  # type: ignore[call-arg]
     id: Optional[int] = Field(default=None, primary_key=True)
     indicator_type: IndicatorType = Field(
-        sa_column=Column(SAEnum(IndicatorType, values_callable=lambda members: [member.value for member in members]), index=True)
+        sa_column=Column(
+            SAEnum(IndicatorType, values_callable=lambda members: [member.value for member in members]), index=True
+        )
     )
     value: str
     severity: Severity = Field(

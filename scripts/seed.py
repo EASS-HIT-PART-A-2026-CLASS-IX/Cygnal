@@ -11,7 +11,7 @@ SAMPLE_INDICATORS = [
         "confidence": 95,
         "tags": ["tor-exit-node", "scanning"],
         "threat_actor": "Unknown",
-        "is_active": True
+        "is_active": True,
     },
     {
         "indicator_type": "Domain",
@@ -21,7 +21,7 @@ SAMPLE_INDICATORS = [
         "confidence": 88,
         "tags": ["c2", "ransomware"],
         "threat_actor": "LockBit",
-        "is_active": True
+        "is_active": True,
     },
     {
         "indicator_type": "URL",
@@ -31,7 +31,7 @@ SAMPLE_INDICATORS = [
         "confidence": 92,
         "tags": ["phishing", "credential-theft"],
         "threat_actor": None,
-        "is_active": True
+        "is_active": True,
     },
     {
         "indicator_type": "Hash",
@@ -41,7 +41,7 @@ SAMPLE_INDICATORS = [
         "confidence": 99,
         "tags": ["malware", "ransomware", "APT29"],
         "threat_actor": "APT29",
-        "is_active": True
+        "is_active": True,
     },
     {
         "indicator_type": "Email",
@@ -51,9 +51,10 @@ SAMPLE_INDICATORS = [
         "confidence": 70,
         "tags": ["phishing", "spear-phishing"],
         "threat_actor": None,
-        "is_active": True
+        "is_active": True,
     },
 ]
+
 
 def seed():
     print(f"🌱 Seeding Cygnal at {BASE_URL} with sample indicators...\n")
@@ -67,8 +68,9 @@ def seed():
                 print(f"   ❌ Failed: {indicator['value']} → {response.status_code}")
     except httpx.ConnectError:
         print("   ❌ Error: Could not connect to API. Is the server running?")
-    
+
     print(f"\n✅ Done! {len(SAMPLE_INDICATORS)} indicators seeded.")
+
 
 if __name__ == "__main__":
     seed()

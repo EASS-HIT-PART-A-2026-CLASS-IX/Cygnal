@@ -36,7 +36,9 @@ class IndicatorRepository:
         severity: Severity | None = None,
         is_active: bool | None = None,
     ) -> int:
-        statement = self._apply_filters(select(func.count()).select_from(Indicator), indicator_type, severity, is_active)
+        statement = self._apply_filters(
+            select(func.count()).select_from(Indicator), indicator_type, severity, is_active
+        )
         return session.exec(statement).one()
 
     def get_by_id(self, session: Session, indicator_id: int) -> Optional[Indicator]:

@@ -67,16 +67,19 @@ def test_list_indicators_empty(client):
 
 
 def test_list_indicators_after_create(client):
-    client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "2.2.2.2",
-        "severity": "low",
-        "source": "unit-test",
-        "confidence": 50,
-        "tags": [],
-        "threat_actor": None,
-        "is_active": True,
-    })
+    client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "2.2.2.2",
+            "severity": "low",
+            "source": "unit-test",
+            "confidence": 50,
+            "tags": [],
+            "threat_actor": None,
+            "is_active": True,
+        },
+    )
     response = client.get("/indicators")
     assert response.status_code == 200
     assert len(response.json()) == 1
@@ -90,26 +93,33 @@ def test_list_indicators_rejects_unsafe_pagination(client):
 
 
 def test_list_indicators_applies_filters(client):
+    values = {"IP": "192.0.2.10", "Domain": "inactive.example"}
     for indicator_type, severity, is_active in [
         ("IP", "high", True),
         ("Domain", "low", False),
     ]:
-        client.post("/indicators", json={
-            "indicator_type": indicator_type,
-            "value": f"{indicator_type}.example",
-            "severity": severity,
-            "source": "unit-test",
-            "confidence": 50,
-            "tags": [],
-            "threat_actor": None,
-            "is_active": is_active,
-        })
+        client.post(
+            "/indicators",
+            json={
+                "indicator_type": indicator_type,
+                "value": values[indicator_type],
+                "severity": severity,
+                "source": "unit-test",
+                "confidence": 50,
+                "tags": [],
+                "threat_actor": None,
+                "is_active": is_active,
+            },
+        )
 
-    response = client.get("/indicators", params={
-        "indicator_type": "Domain",
-        "severity": "low",
-        "is_active": False,
-    })
+    response = client.get(
+        "/indicators",
+        params={
+            "indicator_type": "Domain",
+            "severity": "low",
+            "is_active": False,
+        },
+    )
 
     assert response.status_code == 200
     assert [indicator["indicator_type"] for indicator in response.json()] == ["Domain"]
@@ -117,13 +127,16 @@ def test_list_indicators_applies_filters(client):
 
 def test_paginated_indicators_support_etag(client):
     for index in range(3):
-        client.post("/indicators", json={
-            "indicator_type": "IP",
-            "value": f"192.0.2.{index}",
-            "severity": "medium",
-            "source": "unit-test",
-            "confidence": 60,
-        })
+        client.post(
+            "/indicators",
+            json={
+                "indicator_type": "IP",
+                "value": f"192.0.2.{index}",
+                "severity": "medium",
+                "source": "unit-test",
+                "confidence": 60,
+            },
+        )
 
     response = client.get("/indicators/page", params={"page": 1, "page_size": 2})
 
@@ -148,14 +161,17 @@ def test_paginated_indicators_rejects_unsafe_page(client):
 
 
 def test_export_indicators_csv(client):
-    client.post("/indicators", json={
-        "indicator_type": "Domain",
-        "value": "malicious.example",
-        "severity": "critical",
-        "source": "unit-test",
-        "confidence": 99,
-        "tags": ["c2", "demo"],
-    })
+    client.post(
+        "/indicators",
+        json={
+            "indicator_type": "Domain",
+            "value": "malicious.example",
+            "severity": "critical",
+            "source": "unit-test",
+            "confidence": 99,
+            "tags": ["c2", "demo"],
+        },
+    )
 
     response = client.get("/indicators/export.csv")
 
@@ -166,16 +182,19 @@ def test_export_indicators_csv(client):
 
 
 def test_get_indicator_by_id(client):
-    create = client.post("/indicators", json={
-        "indicator_type": "URL",
-        "value": "http://evil.com",
-        "severity": "high",
-        "source": "unit-test",
-        "confidence": 90,
-        "tags": [],
-        "threat_actor": None,
-        "is_active": True,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "URL",
+            "value": "http://evil.com",
+            "severity": "high",
+            "source": "unit-test",
+            "confidence": 90,
+            "tags": [],
+            "threat_actor": None,
+            "is_active": True,
+        },
+    )
     indicator_id = create.json()["id"]
     response = client.get(f"/indicators/{indicator_id}")
     assert response.status_code == 200
@@ -190,13 +209,16 @@ def test_get_indicator_not_found(client):
 
 
 def test_update_indicator(client):
-    create = client.post("/indicators", json={
-        "indicator_type": "URL",
-        "value": "https://malicious.example",
-        "severity": "medium",
-        "source": "unit-test",
-        "confidence": 70,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "URL",
+            "value": "https://malicious.example",
+            "severity": "medium",
+            "source": "unit-test",
+            "confidence": 70,
+        },
+    )
 
     response = client.put(
         f"/indicators/{create.json()['id']}",
@@ -210,16 +232,19 @@ def test_update_indicator(client):
 
 def test_delete_indicator(client):
     token = _get_token(client)
-    create = client.post("/indicators", json={
-        "indicator_type": "Hash",
-        "value": "abc123",
-        "severity": "medium",
-        "source": "unit-test",
-        "confidence": 70,
-        "tags": [],
-        "threat_actor": None,
-        "is_active": True,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "Hash",
+            "value": "d41d8cd98f00b204e9800998ecf8427e",
+            "severity": "medium",
+            "source": "unit-test",
+            "confidence": 70,
+            "tags": [],
+            "threat_actor": None,
+            "is_active": True,
+        },
+    )
     indicator_id = create.json()["id"]
     response = client.delete(
         f"/indicators/{indicator_id}",
@@ -240,16 +265,19 @@ def test_delete_indicator_not_found(client):
 
 
 def test_delete_indicator_unauthorized(client):
-    create = client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "9.9.9.9",
-        "severity": "low",
-        "source": "unit-test",
-        "confidence": 50,
-        "tags": [],
-        "threat_actor": None,
-        "is_active": True,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "9.9.9.9",
+            "severity": "low",
+            "source": "unit-test",
+            "confidence": 50,
+            "tags": [],
+            "threat_actor": None,
+            "is_active": True,
+        },
+    )
     indicator_id = create.json()["id"]
     response = client.delete(f"/indicators/{indicator_id}")
     assert response.status_code == 401
@@ -261,16 +289,19 @@ def test_delete_indicator_expired_token(client):
         data={"sub": "analyst", "role": "analyst"},
         expires_delta=timedelta(seconds=-1),
     )
-    create = client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "5.5.5.5",
-        "severity": "low",
-        "source": "unit-test",
-        "confidence": 50,
-        "tags": [],
-        "threat_actor": None,
-        "is_active": True,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "5.5.5.5",
+            "severity": "low",
+            "source": "unit-test",
+            "confidence": 50,
+            "tags": [],
+            "threat_actor": None,
+            "is_active": True,
+        },
+    )
     indicator_id = create.json()["id"]
     response = client.delete(
         f"/indicators/{indicator_id}",
@@ -335,13 +366,16 @@ def test_create_indicator_rejects_invalid_values(client, field, value):
 
 
 def test_update_indicator_rejects_invalid_values(client):
-    create = client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "4.4.4.4",
-        "severity": "low",
-        "source": "unit-test",
-        "confidence": 50,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "4.4.4.4",
+            "severity": "low",
+            "source": "unit-test",
+            "confidence": 50,
+        },
+    )
 
     response = client.put(
         f"/indicators/{create.json()['id']}",
@@ -353,13 +387,16 @@ def test_update_indicator_rejects_invalid_values(client):
 
 def test_analyst_cannot_deactivate_indicator(client):
     token = _get_token(client)
-    create = client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "6.6.6.6",
-        "severity": "high",
-        "source": "unit-test",
-        "confidence": 90,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "6.6.6.6",
+            "severity": "high",
+            "source": "unit-test",
+            "confidence": 90,
+        },
+    )
 
     response = client.post(
         f"/indicators/{create.json()['id']}/deactivate",
@@ -371,13 +408,16 @@ def test_analyst_cannot_deactivate_indicator(client):
 
 def test_admin_can_deactivate_indicator(client):
     token = _get_admin_token(client)
-    create = client.post("/indicators", json={
-        "indicator_type": "IP",
-        "value": "7.7.7.7",
-        "severity": "high",
-        "source": "unit-test",
-        "confidence": 90,
-    })
+    create = client.post(
+        "/indicators",
+        json={
+            "indicator_type": "IP",
+            "value": "7.7.7.7",
+            "severity": "high",
+            "source": "unit-test",
+            "confidence": 90,
+        },
+    )
 
     response = client.post(
         f"/indicators/{create.json()['id']}/deactivate",
@@ -391,6 +431,31 @@ def test_admin_can_deactivate_indicator(client):
 
 def test_create_indicator_missing_required_fields(client):
     response = client.post("/indicators", json={"value": "1.1.1.1"})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("indicator_type", "value"),
+    [
+        ("IP", "999.999.999.999"),
+        ("Domain", "not a domain"),
+        ("URL", "javascript:alert(1)"),
+        ("Hash", "abc123"),
+        ("Email", "missing-at.example.com"),
+    ],
+)
+def test_create_indicator_rejects_invalid_ioc_format(client, indicator_type, value):
+    response = client.post(
+        "/indicators",
+        json={
+            "indicator_type": indicator_type,
+            "value": value,
+            "severity": "medium",
+            "source": "unit-test",
+            "confidence": 60,
+        },
+    )
+
     assert response.status_code == 422
 
 

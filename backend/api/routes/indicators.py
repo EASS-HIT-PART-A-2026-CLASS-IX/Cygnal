@@ -69,7 +69,9 @@ def export_indicators_csv(
     is_active: bool | None = None,
     session: Session = Depends(get_session),
 ):
-    indicators = repo.get_all(session, limit=10_000, indicator_type=indicator_type, severity=severity, is_active=is_active)
+    indicators = repo.get_all(
+        session, limit=10_000, indicator_type=indicator_type, severity=severity, is_active=is_active
+    )
     return Response(
         content=indicators_to_csv(indicators),
         media_type="text/csv",
