@@ -35,7 +35,7 @@ docker compose run --rm worker sh -c "uv run python scripts/refresh.py"
 docker compose exec -T redis redis-cli --scan --pattern "ioc:seen:*"
 docker compose exec -T redis redis-cli --scan --pattern "rate:*"
 
-echo "Step 7: Exercise the AI report enhancement"
+echo "Step 7: Exercise the free deterministic enrichment report"
 curl -s -X POST http://127.0.0.1:8001/report | python3 -m json.tool
 
 echo "Dashboard: http://localhost:8501"

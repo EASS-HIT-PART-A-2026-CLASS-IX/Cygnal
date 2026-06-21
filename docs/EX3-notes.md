@@ -1,162 +1,102 @@
-# EX3 – Architecture Notes & Decisions
+# EX3 Architecture Notes and Evidence
 
-## Services Overview
+## Services
 
-| Service | Technology | Port | Role |
-|---------|-----------|------|------|
-| `api` | FastAPI + SQLModel | 8000 | Core backend, CRUD for IOCs |
-| `dashboard` | Streamlit | 8501 | Visual interface for analysts |
-| `worker` | Python + httpx | — | Auto-imports IOCs from AbuseIPDB |
-| `ai_analyst` | FastAPI + Claude API | 8001 | AI-powered threat analysis |
-| `redis` | Redis 7 Alpine | 6379 | Idempotency tracking + rate limiting |
+| Service | Technology | Port | Responsibility |
+| --- | --- | --- | --- |
+| `api` | FastAPI, SQLModel, SQLite | 8000 | IOC validation, CRUD, auth, contracts |
+| `dashboard` | Streamlit, Plotly | 8501 | Analyst threat feed and workflows |
+| `worker` | asyncio, httpx | - | IOC ingestion, retries, concurrency |
+| `ai_analyst` | FastAPI | 8001 | Free structured IOC enrichment |
+| `redis` | Redis 7 | 6379 | Rate limiting and idempotency |
 
----
+The packages are separated by service while preserving the lecturer-facing
+entrypoints: `backend/main.py`, `frontend/dashboard.py`,
+`scripts/refresh.py`, and `ai_analyst/main.py`.
 
-## Internal Architecture
+## Async Worker and Redis Idempotency
 
-The repository keeps the course-facing service entrypoints simple while separating
-implementation concerns inside each service:
+The worker:
 
-- `backend/main.py` composes the FastAPI application; routes, middleware,
-  configuration, schemas, database entities, repositories, and services live in
-  dedicated packages.
-- `frontend/dashboard.py` composes authenticated Streamlit navigation; API
-  clients, reusable components, session state, data services, styles, and views
-  are separated. Shared semantic color tokens follow Streamlit's live Dark,
-  Light, and System theme selection.
-- `ai_analyst/main.py` composes the AI microservice; routes, schemas,
-  configuration, and external communication are isolated.
-- `scripts/refresh.py` remains the required course entrypoint while the async
-  worker implementation lives in `worker/`.
-- Tests mirror the service boundaries under `tests/backend`, `tests/frontend`,
-  `tests/ai_analyst`, and `tests/worker`.
+- uses `asyncio.Semaphore` for bounded concurrency;
+- retries transient HTTP failures with exponential backoff;
+- fingerprints each IOC with SHA-256;
+- claims `ioc:seen:<fingerprint>` atomically with Redis `SET NX EX`;
+- deletes the claim when persistence fails so work can be retried;
+- emits a trace ID, idempotency key, and result for every entry.
 
-This structure preserves the lecturer-facing commands while keeping composition
-roots small and making individual concerns independently testable.
-
----
-
-## Worker & Idempotency
-
-The `scripts/refresh.py` worker pulls malicious IPs from **AbuseIPDB** and stores them in the database.
-
-To prevent duplicate imports, every IOC is fingerprinted with SHA-256:
+Example trace captured from the local Compose stack:
 
 ```text
-fingerprint = sha256("IP:185.220.101.45")
+INFO worker.refresh trace_id=d04563a8-5ab2-4d0d-bc7e-3718e8472e80 idempotency_key=ioc:seen:5f7dba... result=added
 ```
 
-The fingerprint is stored in Redis with a **24-hour TTL**:
+`tests/worker/test_refresh.py` covers concurrency, retry behavior, and the atomic
+Redis claim using `pytest.mark.anyio`.
 
-```text
-ioc:seen:<fingerprint> = "1"  (expires in 86400s)
-```
+## Free Enrichment Enhancement
 
-The worker atomically claims each key with Redis `SET NX EX`. If another worker
-already claimed it, the IOC is skipped. Processing uses bounded concurrency and
-the AbuseIPDB request retries transient HTTP failures with exponential backoff.
+The enrichment service is useful without a paid provider or API key. Its
+deterministic engine combines severity, confidence, active state, relevant tags,
+IOC type, source, and database history. `POST /analyze` returns:
 
-`scripts/refresh.py` is the required course-facing entrypoint. It delegates to
-the testable implementation in `worker/refresh.py` and emits one trace line per
-IOC containing the generated trace ID, Redis idempotency key, and outcome:
+- risk score and risk level;
+- structured reasoning;
+- analysis confidence;
+- IOC-type and source context;
+- first-seen age and matching-record count;
+- recommended analyst actions.
 
-```text
-INFO worker.refresh trace_id=1adbcde0-0b88-4f55-a945-dcaed04f5190 idempotency_key=ioc:seen:07c63a... result=skipped
-```
+Ollama is optional. When `OLLAMA_BASE_URL` is configured and available, a local
+model adds a short explanation. Provider errors are caught and the complete
+structured deterministic result is returned unchanged.
 
----
-
-## AI Analyst Microservice
-
-The `ai_analyst` service uses the **Claude API (Anthropic)** to:
-- Analyze a single IOC and return a threat assessment
-- Generate a summary report of all active IOCs
-
-Start the service:
-```bash
-uv run uvicorn ai_analyst.main:app --port 8001
-```
-
----
+Tests cover successful structured analysis, invalid IDs, missing indicators,
+backend errors, optional local-model success, and local-model fallback.
 
 ## Security Baseline
 
-- Hashed credentials with `bcrypt` via `passlib`
-- JWT-protected routes with role checks (`analyst` / `admin`)
-- Token expiry set to 30 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES = 30`)
-- JWTs validate issuer and audience claims
-- JWT secret, issuer, audience, and expiry are environment-backed
-
-### JWT Flow
-
-1. `POST /auth/login` with form data `username` + `password` → returns `access_token`
-2. Include header: `Authorization: Bearer <token>`
-3. Protected routes verify the token and check the `role` claim
-
-### Protected Routes
-
-| Endpoint | Required Role |
-|----------|--------------|
-| `DELETE /indicators/{id}` | any authenticated user |
-| `POST /indicators/{id}/deactivate` | `admin` only |
+- Passwords are hashed with bcrypt through Passlib.
+- JWTs validate expiration, issuer, audience, subject, and role.
+- Permanent deletion requires authentication.
+- Deactivation requires the `admin` role.
+- Tests cover missing authentication, expired tokens, and insufficient role.
+- IOC creation rejects undeclared fields and invalid IP/domain/URL/hash/email
+  formats.
 
 ### Secret Rotation
 
-To rotate the JWT secret:
+1. Generate a new key: `openssl rand -hex 32`.
+2. Replace `JWT_SECRET_KEY` in the local environment or deployment secret store.
+3. Restart the API.
+4. Existing tokens become invalid and users must authenticate again.
 
-1. Generate a new secret:
-   ```bash
-   openssl rand -hex 32
-   ```
-2. Update `JWT_SECRET_KEY` in `.env` or the deployment secret store
-3. Restart the API:
-   ```bash
-   uv run uvicorn backend.main:app --reload
-   ```
-4. All existing tokens are immediately invalidated — users must log in again
+Classroom credentials and fallback secrets must not be reused outside the local
+demonstration.
 
----
+## Release Contracts
 
-## Enhancement – IOC Summary Report
-
-One-click **CSV export** and **AI-generated summary** are available from the
-Streamlit dashboard. The API also exposes filtered CSV export and a paginated,
-ETag-enabled release-contract endpoint.
-
----
-
-## Redis Trace
-
-Actual Redis keys captured from the Compose stack on 10 June 2026:
-
-```text
-ioc:seen:07c63a564a9c290cdc88de74b6a27e7fc554d36decb88a274ef6de710978fe59
-ioc:seen:dd73d89974f9ac2770eaa09906f8e5d419d45c9bdb4927bbe06f3c540ecd1f05
-rate:127.0.0.1:/health:29685268
-rate:testclient:/indicators/page:29685268
-```
+- deterministic ID-ordered listings;
+- page metadata and `X-Total-Count`;
+- weak ETags and `If-None-Match` / 304 behavior;
+- filtered CSV export;
+- shared trace and rate-limit headers;
+- documented error envelopes;
+- FastMCP repository bridge.
 
 ## Course Deliverables
 
-- Compose launches API, dashboard, AI analyst, Redis, and the async worker.
-- The worker has bounded concurrency, retries, atomic Redis idempotency, and
-  `pytest.mark.anyio` tests.
-- Redis-backed rate limiting emits the documented headers.
-- Hashed credentials and issuer/audience/expiry-aware JWT role checks protect
-  delete and admin deactivation routes.
-- CSV export, filtering, AI reports, pagination, and ETags are covered by tests.
-- Dark, Light, and browser-controlled System themes are covered by frontend
-  regression tests.
-- `.github/workflows/ci.yaml` and `docs/release-checklist.md` document pytest,
-  coverage, Schemathesis, Ruff, mypy, MkDocs/pdoc, and FastMCP gates. The
-  maintained `pdoc` package is used because legacy `pdocs` is incompatible with
-  Python 3.12.
-- Schemathesis intentionally fuzzes read-only GET contracts in CI so contract
-  testing cannot mutate or delete grader data.
+- Compose launches API, dashboard, enrichment, Redis, and worker services.
+- The dashboard provides list/create, search, filtering, edit/delete, CSV,
+  metrics, and structured enrichment workflows.
+- Worker reliability, JWT role checks, contracts, and enhancements have automated
+  coverage.
+- CI runs formatting, Ruff, mypy, pytest/coverage, Schemathesis, MkDocs, pdoc,
+  and the MCP probe.
+- `scripts/demo.sh` provides a grader-oriented local walkthrough.
 
----
+## AI Assistance Disclosure
 
-## AI Assistance
-
-This project was developed with the assistance of **Claude (Anthropic)**.
-All AI-generated code was reviewed, understood, and verified locally before being committed.
+Claude and OpenAI Codex assisted with design review, implementation, testing, and
+documentation. Generated changes were reviewed and verified locally. Runtime
+analysis is deterministic by default and does not depend on a paid AI service.

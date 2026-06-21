@@ -1,93 +1,91 @@
-# 🐳 Compose Runbook – Cygnal
+# Docker Compose Runbook
 
 ## Prerequisites
 
-- Docker Desktop installed and running
-- WSL2 enabled (Windows users)
+- Docker Desktop running
+- Docker Compose v2
+- Ports 8000, 8001, 8501, and 6379 available
 
----
-
-## 🚀 Launch the full stack
+## Launch
 
 ```bash
 docker compose up --build
 ```
 
-This starts:
-- `api` – FastAPI backend on port 8000
-- `dashboard` – Streamlit frontend on port 8501
-- `ai_analyst` – AI analysis microservice on port 8001
-- `worker` – async IOC refresh worker, repeated every five minutes
-- `redis` – Redis cache on port 6379
+Services:
 
----
+- `api`: http://localhost:8000
+- `ai_analyst`: http://localhost:8001
+- `dashboard`: http://localhost:8501
+- `redis`: localhost:6379
+- `worker`: scheduled IOC refresh every five minutes
 
-## ✅ Verify health
+## Verify
 
 ```bash
-# API health
-curl http://localhost:8000/health
-
-# Redis ping
-docker exec $(docker compose ps -q redis) redis-cli ping
-
-# Full service status
 docker compose ps
+curl http://localhost:8000/health
+curl http://localhost:8001/health
+curl http://localhost:8501/_stcore/health
+docker compose exec -T redis redis-cli ping
 ```
 
----
+Expected: API and enrichment report `ok`, Streamlit reports `ok`, and Redis
+returns `PONG`.
 
-## 🔄 Run the IOC refresh worker manually
+## Exercise Free Enrichment
+
+Choose an existing indicator ID:
+
+```bash
+curl -s -X POST http://localhost:8001/analyze   -H "Content-Type: application/json"   -d '{"indicator_id": 1}'
+```
+
+No API key is required.
+
+Optional Ollama on Docker Desktop:
+
+```bash
+ollama pull llama3.2:3b
+export OLLAMA_BASE_URL=http://host.docker.internal:11434
+docker compose up --build -d ai_analyst
+```
+
+If Ollama is stopped or unavailable, deterministic enrichment continues to work.
+
+## Worker and Redis Evidence
 
 ```bash
 docker compose run --rm worker sh -c "uv run python scripts/refresh.py"
+docker compose exec -T redis redis-cli --scan --pattern "ioc:seen:*"
+docker compose exec -T redis redis-cli --scan --pattern "rate:*"
+docker compose logs --tail=30 worker
 ```
 
----
+A repeated worker run should report skipped indicators while the idempotency keys
+remain valid.
 
-## 🧪 Run tests
-
-```bash
-uv run pytest
-
-# CI-equivalent contract probe
-uvx schemathesis run http://localhost:8000/openapi.json --checks status_code_conformance,response_schema_conformance --include-method GET --exclude-path /auth/me --phases coverage,fuzzing --max-examples 5 --generation-database :memory:
-```
-
----
-
-## 🛑 Stop the stack
-
-```bash
-docker compose down
-```
-
----
-
-## 📋 Rate limit headers
-
-Every API response includes:
-- `X-RateLimit-Limit` – max requests per minute
-- `X-RateLimit-Remaining` – remaining requests
-
-Verify them together with trace and ETag headers:
+## Headers and Contracts
 
 ```bash
 curl -i http://localhost:8000/health
 curl -i "http://localhost:8000/indicators/page?page=1&page_size=3"
 ```
 
----
+Responses expose trace and rate-limit headers; the paginated endpoint also
+returns `X-Total-Count` and `ETag`.
 
-## 🔍 View Redis keys
+## Tests and Release Gates
 
 ```bash
-docker exec $(docker compose ps -q redis) redis-cli keys "ioc:seen:*"
-docker exec $(docker compose ps -q redis) redis-cli keys "rate:*"
+uv run pytest
+uv run python scripts/check_release.py
 ```
 
-## CI and release gates
+The release runner expects the API at http://127.0.0.1:8000 for Schemathesis.
 
-GitHub Actions runs pytest with coverage, Ruff, mypy, Schemathesis, MkDocs,
-pdocs, and the FastMCP probe. The complete local checklist is in
-`docs/release-checklist.md`.
+## Stop
+
+```bash
+docker compose down
+```

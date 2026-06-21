@@ -1,32 +1,35 @@
 # Cygnal Service Contract
 
-## Shared Headers
+## Shared API Headers
 
-Every API response includes:
+Every backend response includes:
 
-- `X-Trace-Id`: accepts a caller-provided value or generates one.
-- `X-RateLimit-Limit`: maximum requests per minute.
-- `X-RateLimit-Remaining`: requests remaining in the current Redis-backed window.
+- `X-Trace-Id`;
+- `X-RateLimit-Limit`;
+- `X-RateLimit-Remaining`.
 
-When the limit is exceeded, the API returns `429` with `Retry-After: 60`.
+Rate-limit rejection returns `429` and `Retry-After: 60`. Errors use a shared
+status/error/detail/trace envelope.
 
-All errors use the shared envelope:
+## Indicator Validation
 
-```json
-{
-  "status": 404,
-  "error": "resource_not_found",
-  "detail": "Indicator not found",
-  "trace_id": "caller-or-generated-trace-id"
-}
-```
+`POST /indicators` rejects undeclared fields and validates the value according to
+`indicator_type`:
 
-## Indicator Listing
+- IP: valid IPv4 or IPv6;
+- Domain: normalized DNS domain;
+- URL: HTTP or HTTPS URL with a hostname;
+- Hash: hexadecimal MD5, SHA-1, SHA-256, or SHA-512;
+- Email: address-shaped local and domain parts.
 
-`GET /indicators` returns a deterministic ID-ordered JSON array. It accepts `skip`,
-`limit`, `indicator_type`, `severity`, and `is_active` filters.
+Confidence is limited to 0-100, and type/severity use enums.
 
-`GET /indicators/page` is the release-contract listing endpoint. It returns:
+## Listing and Pagination
+
+`GET /indicators` returns an ID-ordered array and supports `skip`, `limit`,
+`indicator_type`, `severity`, and `is_active`.
+
+`GET /indicators/page` returns:
 
 ```json
 {
@@ -37,29 +40,41 @@ All errors use the shared envelope:
 }
 ```
 
-The endpoint accepts `page` from 1 and `page_size` from 1 to 100. Responses include
-`X-Total-Count` and a weak `ETag`. Repeating the request with the same value in
-`If-None-Match` returns `304 Not Modified`.
+It includes `X-Total-Count` and a weak `ETag`. Repeating the request with a
+matching `If-None-Match` returns `304 Not Modified`.
 
 ## CSV Export
 
-`GET /indicators/export.csv` returns ID-ordered indicators with this header order:
+`GET /indicators/export.csv` returns this deterministic column order:
 
 ```text
 id,indicator_type,value,severity,source,confidence,tags,threat_actor,is_active,created_at
 ```
 
-Multiple tags are joined with commas and quoted according to standard CSV rules.
-The same type, severity, and active-state filters supported by the JSON endpoints
-are available for CSV export.
+The JSON listing filters are also available for CSV.
 
-## Authentication
+## Authentication and Mutation
 
-`POST /auth/login` accepts form-encoded `username` and `password`. Protected routes
-require `Authorization: Bearer <token>`. Tokens include expiration, issued-at,
-issuer, audience, subject, and role claims.
+`POST /auth/login` accepts form-encoded credentials. JWTs contain expiration,
+issued-at, issuer, audience, subject, and role claims.
 
-## Indicator Mutation
+- Create and update use validated request schemas.
+- Delete requires an authenticated user.
+- Deactivate requires the `admin` role.
 
-Create and update requests reject undeclared fields. Creation timestamps are
-server-owned and cannot be supplied by API clients.
+## Enrichment Service
+
+The enrichment service is exposed separately on port 8001.
+
+`POST /analyze` request:
+
+```json
+{"indicator_id": 1}
+```
+
+The response contains `risk_score`, `risk_level`, `confidence`, `summary`,
+`reasoning`, `recommended_actions`, `type_analysis`, `source_context`,
+`historical_context`, `analysis_mode`, and an optional local-model explanation.
+
+`POST /report` returns deterministic aggregate risk metrics and a Markdown
+summary. Both endpoints work without a paid API key.
