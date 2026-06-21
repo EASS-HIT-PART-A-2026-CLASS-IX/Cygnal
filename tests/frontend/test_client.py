@@ -23,7 +23,7 @@ def test_list_indicators_returns_list():
             "tags": ["ransomware"],
             "threat_actor": None,
             "is_active": True,
-            "created_at": "2026-01-01T00:00:00"
+            "created_at": "2026-01-01T00:00:00",
         }
     ]
     mock_response.raise_for_status = MagicMock()
@@ -62,7 +62,7 @@ def test_create_indicator_returns_dict():
         "tags": ["c2"],
         "threat_actor": "APT29",
         "is_active": True,
-        "created_at": "2026-01-01T00:00:00"
+        "created_at": "2026-01-01T00:00:00",
     }
     mock_response.raise_for_status = MagicMock()
 

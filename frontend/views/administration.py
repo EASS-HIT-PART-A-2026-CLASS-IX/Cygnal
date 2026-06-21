@@ -39,10 +39,7 @@ def render() -> None:
         st.info("There are no indicators to administer.")
         return
 
-    options = {
-        f"#{item['id']}  [{item['indicator_type']}]  {item['value']}": item
-        for item in indicators
-    }
+    options = {f"#{item['id']}  [{item['indicator_type']}]  {item['value']}": item for item in indicators}
     selected = st.selectbox("Select indicator", list(options))
     item = options[selected]
 

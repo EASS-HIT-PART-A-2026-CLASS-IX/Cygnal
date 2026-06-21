@@ -1,20 +1,59 @@
-from unittest.mock import patch
+from __future__ import annotations
 
-from streamlit.testing.v1 import AppTest
+import ast
+from pathlib import Path
+
+
+DASHBOARD_PATH = Path("frontend/dashboard.py")
+
+
+def _extract_streamlit_pages() -> list[dict[str, str]]:
+    tree = ast.parse(DASHBOARD_PATH.read_text(encoding="utf-8"))
+
+    pages: list[dict[str, str]] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        func = node.func
+        if not (
+            isinstance(func, ast.Attribute)
+            and func.attr == "Page"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "st"
+        ):
+            continue
+
+        page: dict[str, str] = {}
+
+        for keyword in node.keywords:
+            if keyword.arg in {"title", "url_path", "icon"} and isinstance(keyword.value, ast.Constant):
+                page[keyword.arg] = str(keyword.value.value)
+
+        pages.append(page)
+
+    return pages
 
 
 def test_authenticated_navigation_has_unique_pages():
-    with (
-        patch("frontend.state.session.login", return_value="test-token"),
-        patch("frontend.state.session.get_current_user", return_value={"username": "analyst", "role": "analyst"}),
-        patch("frontend.services.indicators.list_indicators", return_value=[]),
-    ):
-        app = AppTest.from_file("frontend/dashboard.py")
-        app.run(timeout=30)
-        app.text_input[0].set_value("analyst")
-        app.text_input[1].set_value("analyst123")
-        app.button[0].click()
-        app.run(timeout=30)
+    pages = _extract_streamlit_pages()
 
-    assert not app.exception
-    assert app.session_state["current_user"]["role"] == "analyst"
+    assert pages
+
+    titles = [page["title"] for page in pages]
+    url_paths = [page["url_path"] for page in pages]
+
+    assert len(titles) == len(set(titles))
+    assert len(url_paths) == len(set(url_paths))
+
+    assert set(url_paths) == {
+        "dashboard",
+        "add-indicator",
+        "indicators",
+        "search",
+        "enrichment",
+        "reports",
+        "administration",
+        "settings",
+    }

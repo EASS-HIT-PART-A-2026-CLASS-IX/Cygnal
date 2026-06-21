@@ -4,6 +4,14 @@ import pandas as pd
 import streamlit as st
 
 
+SEVERITY_STYLES = {
+    "Critical": "background-color: rgba(239, 68, 68, .18); color: #ef4444; font-weight: 700",
+    "High": "background-color: rgba(249, 115, 22, .18); color: #f97316; font-weight: 700",
+    "Medium": "background-color: rgba(234, 179, 8, .18); color: #d6a800; font-weight: 700",
+    "Low": "background-color: rgba(59, 130, 246, .18); color: #3b82f6; font-weight: 700",
+}
+
+
 def indicator_dataframe(indicators: list[dict[str, Any]]) -> pd.DataFrame:
     if not indicators:
         return pd.DataFrame()
@@ -12,7 +20,9 @@ def indicator_dataframe(indicators: list[dict[str, Any]]) -> pd.DataFrame:
     frame["threat_actor"] = frame["threat_actor"].fillna("-")
     frame["status"] = frame["is_active"].map({True: "Active", False: "Inactive"})
     frame["severity"] = frame["severity"].str.title()
-    frame = frame[["id", "indicator_type", "value", "severity", "source", "confidence", "tags", "threat_actor", "status"]]
+    frame = frame[
+        ["id", "indicator_type", "value", "severity", "source", "confidence", "tags", "threat_actor", "status"]
+    ]
     frame.columns = ["ID", "Type", "Value", "Severity", "Source", "Confidence", "Tags", "Threat Actor", "Status"]
     return frame
 
@@ -22,8 +32,9 @@ def render_indicator_table(indicators: list[dict[str, Any]], empty_message: str 
     if frame.empty:
         st.info(empty_message)
         return
+    styled = frame.style.map(lambda value: SEVERITY_STYLES.get(value, ""), subset=["Severity"])
     st.dataframe(
-        frame,
+        styled,
         hide_index=True,
         width="stretch",
         height=min(560, 42 + len(frame) * 36),

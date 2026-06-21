@@ -6,6 +6,7 @@ from frontend.components.layout import render_sidebar_brand, render_user_card
 from frontend.state import initialize_session, logout
 from frontend.styles import apply_global_styles
 from frontend.views import (
+    add_indicator,
     administration,
     ai_analyst,
     dashboard,
@@ -35,12 +36,18 @@ render_sidebar_brand()
 
 pages = {
     "Workspace": [
-        st.Page(dashboard.render, title="Dashboard", icon=":material/dashboard:", url_path="dashboard", default=True),
-        st.Page(indicators.render, title="Indicators", icon=":material/list_alt:", url_path="indicators"),
-        st.Page(search.render, title="Search & Filters", icon=":material/manage_search:", url_path="search"),
+        st.Page(dashboard.render, title="Threat Feed", icon=":material/dashboard:", url_path="dashboard", default=True),
+        st.Page(
+            add_indicator.render,
+            title="Add Indicator",
+            icon=":material/add_circle:",
+            url_path="add-indicator",
+        ),
+        st.Page(indicators.render, title="Manage Indicators", icon=":material/list_alt:", url_path="indicators"),
+        st.Page(search.render, title="Search & Export", icon=":material/manage_search:", url_path="search"),
     ],
     "Intelligence": [
-        st.Page(ai_analyst.render, title="AI Analyst", icon=":material/psychology:", url_path="ai-analyst"),
+        st.Page(ai_analyst.render, title="IOC Enrichment", icon=":material/troubleshoot:", url_path="enrichment"),
         st.Page(reports.render, title="Reports", icon=":material/assessment:", url_path="reports"),
     ],
     "System": [

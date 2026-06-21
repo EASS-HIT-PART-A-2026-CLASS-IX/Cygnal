@@ -1,39 +1,74 @@
 from __future__ import annotations
 
+from collections import Counter
+from datetime import datetime, timezone
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from frontend.api.client import delete_indicator, update_indicator
 from frontend.components.indicator_table import render_indicator_table
 from frontend.components.layout import page_header
-from frontend.services.indicators import load_indicators
-from frontend.styles import CHART_COLORS
+from frontend.services.indicators import filter_indicators, load_indicators, refresh_indicators
+from frontend.styles import CHART_COLORS, INDICATOR_TYPES, SEVERITY_LEVELS
+
+
+SEVERITIES = ["low", "medium", "high", "critical"]
+
+
+def _is_today(timestamp: str) -> bool:
+    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).date() == datetime.now(timezone.utc).date()
 
 
 def render() -> None:
     page_header(
-        "Intelligence Overview",
-        "Monitor the current IOC landscape and focus attention on the highest-risk signals.",
-        "Operational dashboard",
+        "Threat Intelligence Feed",
+        "Search, prioritize, and act on the indicators currently tracked by Cygnal.",
+        "Analyst operations",
     )
     indicators = load_indicators()
+    active = [item for item in indicators if item["is_active"]]
+    critical = sum(item["severity"] == "critical" for item in active)
+    high_risk = sum(item["severity"] in {"critical", "high"} for item in active)
+    added_today = sum(_is_today(item["created_at"]) for item in indicators)
+    average_confidence = round(sum(item["confidence"] for item in indicators) / len(indicators)) if indicators else 0
+    source_counts = Counter(item["source"] for item in active)
+    most_active_source = source_counts.most_common(1)[0][0] if source_counts else "None"
 
-    total = len(indicators)
-    active = sum(1 for item in indicators if item["is_active"])
-    critical = sum(1 for item in indicators if item["severity"] == "critical")
-    high = sum(1 for item in indicators if item["severity"] == "high")
-    average_confidence = round(sum(item["confidence"] for item in indicators) / total) if total else 0
-
-    columns = st.columns(5)
-    columns[0].metric("Total IOCs", total)
-    columns[1].metric("Active", active)
-    columns[2].metric("Critical", critical)
-    columns[3].metric("High", high)
-    columns[4].metric("Avg. confidence", f"{average_confidence}%")
+    columns = st.columns(6)
+    columns[0].metric("Total IOCs", len(indicators))
+    columns[1].metric("Critical", critical)
+    columns[2].metric("High risk", high_risk)
+    columns[3].metric("Added today", added_today)
+    columns[4].metric("Top source", most_active_source)
+    columns[5].metric("Avg. confidence", f"{average_confidence}%")
 
     if not indicators:
-        st.info("No indicators are available yet.")
+        st.info("No indicators are available yet. Use Add Indicator to create the first record.")
         return
+
+    with st.container(border=True):
+        first, second, third = st.columns([1, 1, 2])
+        indicator_type = first.selectbox("Indicator type", INDICATOR_TYPES, key="feed_type")
+        severity = second.selectbox("Severity", SEVERITY_LEVELS, key="feed_severity")
+        query = third.text_input(
+            "Search the feed",
+            placeholder="IP, domain, URL, hash, email, source, tag, or actor",
+            key="feed_query",
+        )
+        active_only = st.toggle("Active indicators only", value=True, key="feed_active")
+
+    filtered = filter_indicators(indicators, indicator_type, severity, query, active_only)
+    st.subheader("Current threat feed")
+    st.caption(f"{len(filtered)} of {len(indicators)} indicators shown")
+    render_indicator_table(filtered, "No indicators match the current feed filters.")
+
+    if filtered:
+        _render_quick_actions(filtered)
 
     frame = pd.DataFrame(indicators)
     chart_left, chart_right = st.columns(2, gap="large")
@@ -76,9 +111,56 @@ def render() -> None:
         )
         st.plotly_chart(figure, width="stretch")
 
-    st.subheader("Priority indicators")
-    priority = [
-        item for item in indicators
-        if item["is_active"] and item["severity"] in {"critical", "high"}
-    ][:8]
-    render_indicator_table(priority, "No active high-priority indicators.")
+
+def _render_quick_actions(indicators: list[dict]) -> None:
+    with st.expander("Feed quick actions", icon=":material/edit_square:"):
+        options = {f"#{item['id']} [{item['indicator_type']}] {item['value']}": item for item in indicators}
+        selected = st.selectbox("Selected indicator", list(options), key="feed_action_indicator")
+        item = options[selected]
+
+        with st.form("feed_quick_action_form"):
+            first, second, third = st.columns(3)
+            severity = first.selectbox(
+                "Severity",
+                SEVERITIES,
+                index=SEVERITIES.index(item["severity"]),
+                key="feed_action_severity",
+            )
+            confidence = second.slider(
+                "Confidence",
+                0,
+                100,
+                item["confidence"],
+                key="feed_action_confidence",
+            )
+            is_active = third.checkbox("Active", value=item["is_active"], key="feed_action_active")
+            confirm_delete = st.checkbox("Confirm permanent deletion", key="feed_confirm_delete")
+            save, delete = st.columns(2)
+            save_clicked = save.form_submit_button("Save assessment", type="primary", width="stretch")
+            delete_clicked = delete.form_submit_button(
+                "Delete indicator",
+                width="stretch",
+                disabled=not confirm_delete,
+            )
+
+        try:
+            if save_clicked:
+                update_indicator(
+                    item["id"],
+                    severity=severity,
+                    source=item["source"],
+                    confidence=confidence,
+                    tags=item.get("tags") or [],
+                    threat_actor=item.get("threat_actor"),
+                    is_active=is_active,
+                )
+                refresh_indicators()
+                st.success("Indicator assessment updated.")
+                st.rerun()
+            if delete_clicked:
+                delete_indicator(item["id"], st.session_state.access_token)
+                refresh_indicators()
+                st.success("Indicator deleted.")
+                st.rerun()
+        except Exception as exc:
+            st.error(f"Action failed: {exc}")

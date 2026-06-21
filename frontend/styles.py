@@ -3,7 +3,7 @@ import streamlit as st
 
 INDICATOR_TYPES = ["All", "IP", "Domain", "URL", "Hash", "Email"]
 SEVERITY_LEVELS = ["All", "critical", "high", "medium", "low"]
-SEVERITY_COLORS = {"critical": "#ef4444", "high": "#f97316", "medium": "#eab308", "low": "#22c55e"}
+SEVERITY_COLORS = {"critical": "#ef4444", "high": "#f97316", "medium": "#eab308", "low": "#3b82f6"}
 CHART_COLORS = {
     **SEVERITY_COLORS,
     "IP": "#38bdf8",
@@ -12,6 +12,7 @@ CHART_COLORS = {
     "Hash": "#818cf8",
     "Email": "#c084fc",
 }
+
 
 def get_theme_css() -> str:
     """Return CSS that follows Streamlit's live System, Light, or Dark theme."""
@@ -78,7 +79,4 @@ def get_theme_css() -> str:
 
 
 def apply_global_styles() -> None:
-    st.markdown(
-        get_theme_css(),
-        unsafe_allow_html=True,
-    )
+    st.markdown(get_theme_css(), unsafe_allow_html=True)
