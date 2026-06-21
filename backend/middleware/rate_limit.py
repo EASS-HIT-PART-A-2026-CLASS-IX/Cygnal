@@ -10,7 +10,12 @@ from backend.core.config import settings
 async def check_rate_limit(request: Request) -> tuple[bool, int]:
     client_host = request.client.host if request.client else "unknown"
     key = f"rate:{client_host}:{request.url.path}:{int(time.time() // 60)}"
-    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    redis_client = aioredis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+        socket_connect_timeout=0.5,
+        socket_timeout=0.5,
+    )
     try:
         current = await redis_client.incr(key)
         if current == 1:
