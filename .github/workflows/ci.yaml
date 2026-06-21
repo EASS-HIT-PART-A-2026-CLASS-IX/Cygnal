@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  UV_LOCK_TIMEOUT: 600
+
 on:
   push:
   pull_request:
