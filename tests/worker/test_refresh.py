@@ -9,10 +9,7 @@ from worker import refresh as worker
 
 @pytest.mark.anyio
 async def test_refresh_uses_bounded_concurrency(monkeypatch):
-    entries = [
-        {"ipAddress": f"192.0.2.{index}", "abuseConfidenceScore": 80}
-        for index in range(6)
-    ]
+    entries = [{"ipAddress": f"192.0.2.{index}", "abuseConfidenceScore": 80} for index in range(6)]
     active = 0
     peak = 0
 
