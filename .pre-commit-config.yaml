@@ -3,11 +3,23 @@ repos:
     rev: v0.11.13
     hooks:
       - id: ruff
+        args: [--no-cache]
       - id: ruff-format
+        args: [--no-cache]
   - repo: local
     hooks:
+      - id: mypy
+        name: mypy
+        entry: uvx --from mypy==1.19.1 mypy backend frontend ai_analyst worker scripts --ignore-missing-imports --check-untyped-defs
+        language: system
+        pass_filenames: false
       - id: pytest
         name: pytest
-        entry: uv run pytest -q
+        entry: uv run --no-sync pytest -q -p no:cacheprovider
+        language: system
+        pass_filenames: false
+      - id: mkdocs
+        name: mkdocs strict build
+        entry: uv run --no-sync python scripts/check_docs.py
         language: system
         pass_filenames: false

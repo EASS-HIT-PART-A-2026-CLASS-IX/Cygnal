@@ -5,10 +5,24 @@ from pathlib import Path
 
 
 TEMP_ROOT = Path(tempfile.gettempdir()) / "cygnal-release"
+API_URL = os.getenv("CYGNAL_API_URL", "http://127.0.0.1:8000").rstrip("/")
 COMMANDS = [
     ["uv", "sync", "--frozen", "--no-install-project"],
     ["uvx", "ruff", "check", ".", "--no-cache"],
-    ["uvx", "--from", "mypy==1.19.1", "mypy", "backend", "frontend", "ai_analyst", "worker", "scripts", "--ignore-missing-imports", "--check-untyped-defs"],
+    ["uvx", "ruff", "format", "--check", ".", "--no-cache"],
+    [
+        "uvx",
+        "--from",
+        "mypy==1.19.1",
+        "mypy",
+        "backend",
+        "frontend",
+        "ai_analyst",
+        "worker",
+        "scripts",
+        "--ignore-missing-imports",
+        "--check-untyped-defs",
+    ],
     [
         "uv",
         "run",
@@ -30,7 +44,7 @@ COMMANDS = [
         "uvx",
         "schemathesis",
         "run",
-        "http://127.0.0.1:8000/openapi.json",
+        f"{API_URL}/openapi.json",
         "--checks",
         "status_code_conformance,response_schema_conformance",
         "--include-method",
