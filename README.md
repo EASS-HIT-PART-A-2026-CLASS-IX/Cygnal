@@ -6,9 +6,6 @@ a FastAPI backend, SQLModel persistence, a professional Streamlit analyst
 workspace, an asynchronous ingestion worker, Redis, and a free enrichment
 microservice.
 
-Built for the EASS-HIT 2026 EX1-EX3 sequence, Cygnal keeps lecturer-facing
-commands simple while demonstrating a maintainable multi-service architecture.
-
 ## Main Features
 
 - Validated CRUD for IP, domain, URL, hash, and email indicators
