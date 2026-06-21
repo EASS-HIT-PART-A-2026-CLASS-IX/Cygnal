@@ -3,6 +3,8 @@ theme:
   name: material
 nav:
   - Home: EX3-notes.md
+  - Product Specification: product-spec.md
+  - Course Alignment: course-alignment.md
   - Service Contract: service-contract.md
   - Compose Runbook: runbooks/compose.md
   - Release Checklist: release-checklist.md
