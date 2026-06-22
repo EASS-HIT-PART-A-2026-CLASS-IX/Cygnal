@@ -14,6 +14,7 @@ def render() -> None:
             .st-key-delete_permanently button {
                 background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
                 border-color: #ef4444 !important;
+                color: #ffffff !important;
             }
             .st-key-delete_permanently button:hover {
                 background: linear-gradient(135deg, #991b1b, #b91c1c) !important;

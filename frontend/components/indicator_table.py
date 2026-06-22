@@ -5,10 +5,10 @@ import streamlit as st
 
 
 SEVERITY_STYLES = {
-    "Critical": "background-color: rgba(239, 68, 68, .18); color: #ef4444; font-weight: 700",
-    "High": "background-color: rgba(249, 115, 22, .18); color: #f97316; font-weight: 700",
-    "Medium": "background-color: rgba(234, 179, 8, .18); color: #d6a800; font-weight: 700",
-    "Low": "background-color: rgba(59, 130, 246, .18); color: #3b82f6; font-weight: 700",
+    "Critical": "background-color: rgba(239, 68, 68, .18); font-weight: 700",
+    "High": "background-color: rgba(249, 115, 22, .18); font-weight: 700",
+    "Medium": "background-color: rgba(234, 179, 8, .18); font-weight: 700",
+    "Low": "background-color: rgba(59, 130, 246, .18); font-weight: 700",
 }
 
 

@@ -2,14 +2,25 @@ from frontend.components.indicator_table import SEVERITY_STYLES
 from frontend.styles import SEVERITY_COLORS, get_theme_css
 
 
-def test_theme_css_follows_streamlit_live_variables():
+def test_theme_css_preserves_streamlit_theme_behavior():
     css = get_theme_css()
 
-    assert ".stApp {" in css
-    assert "--cy-bg: var(--background-color, #071019)" in css
-    assert "--cy-sidebar: var(--secondary-background-color, #0b1c29)" in css
-    assert "--cy-text: var(--text-color, #f1f5f9)" in css
-    assert "--cy-accent: var(--primary-color, #38bdf8)" in css
+    assert "var(--primary-color, #0284c7)" in css
+    assert "currentColor" in css
+    assert "color:inherit" in css
+
+
+def test_theme_css_does_not_interfere_with_sidebar_navigation():
+    css = get_theme_css()
+
+    assert "data-testid" not in css
+    assert "stSidebarNav" not in css
+    assert "pointer-events" not in css
+    assert "z-index" not in css
+    compact_css = css.replace(" ", "")
+    assert "position:absolute" not in compact_css
+    assert "position:fixed" not in compact_css
+    assert 'button[kind="primary"]' not in css
 
 
 def test_severity_palette_is_consistent_and_low_is_blue():
