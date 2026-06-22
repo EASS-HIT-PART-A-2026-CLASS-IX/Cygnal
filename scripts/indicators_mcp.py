@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from sqlmodel import Session
 
-from backend.db.session import engine
+from backend.db.session import create_db_and_tables, engine
 from backend.repositories.indicators import repo
 
 
@@ -9,6 +9,7 @@ mcp = FastMCP("Cygnal")
 
 
 def get_active_indicators(limit: int = 20) -> list[dict]:
+    create_db_and_tables()
     with Session(engine) as session:
         indicators = repo.get_all(session, limit=limit, is_active=True)
         return [indicator.model_dump(mode="json") for indicator in indicators]

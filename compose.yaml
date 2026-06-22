@@ -5,9 +5,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./cygnal.db:/app/cygnal.db
+      - cygnal-data:/data
     environment:
-      - DATABASE_URL=sqlite:///cygnal.db
+      - DATABASE_URL=sqlite:////data/cygnal.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-cygnal-compose-development-secret}
       - JWT_ISSUER=cygnal-api
       - JWT_AUDIENCE=cygnal-clients
@@ -38,14 +38,15 @@ services:
 
   worker:
     build: .
-    command: ["sh", "-c", "while true; do uv run python scripts/refresh.py; sleep 300; done"]
+    command: ["sh", "-c", "uv run python scripts/seed.py; while true; do uv run python scripts/refresh.py; sleep 300; done"]
     environment:
-      - DATABASE_URL=sqlite:///cygnal.db
+      - DATABASE_URL=sqlite:////data/cygnal.db
+      - CYGNAL_API_URL=http://api:8000
       - REDIS_URL=redis://redis:6379/0
       - REFRESH_MAX_CONCURRENCY=4
       - REFRESH_MAX_ATTEMPTS=3
     volumes:
-      - ./cygnal.db:/app/cygnal.db
+      - cygnal-data:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -80,3 +81,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+volumes:
+  cygnal-data:

@@ -1,75 +1,143 @@
+import os
+
 import httpx
 
-BASE_URL = "http://127.0.0.1:8000"
+
+BASE_URL = os.getenv("CYGNAL_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 SAMPLE_INDICATORS = [
     {
         "indicator_type": "IP",
-        "value": "185.220.101.45",
+        "value": "203.0.113.42",
         "severity": "critical",
-        "source": "AbuseIPDB",
-        "confidence": 95,
-        "tags": ["tor-exit-node", "scanning"],
-        "threat_actor": "Unknown",
+        "source": "Demo-OSINT",
+        "confidence": 96,
+        "tags": ["demo", "c2", "scanner"],
+        "threat_actor": "Demo-Campaign-Red",
+        "is_active": True,
+    },
+    {
+        "indicator_type": "IP",
+        "value": "198.51.100.77",
+        "severity": "medium",
+        "source": "Internal-SOC",
+        "confidence": 68,
+        "tags": ["demo", "brute-force"],
+        "threat_actor": None,
         "is_active": True,
     },
     {
         "indicator_type": "Domain",
-        "value": "malware-c2.ru",
+        "value": "c2-beacon.example",
+        "severity": "critical",
+        "source": "Demo-OSINT",
+        "confidence": 94,
+        "tags": ["demo", "c2", "ransomware"],
+        "threat_actor": "Demo-Ransomware",
+        "is_active": True,
+    },
+    {
+        "indicator_type": "Domain",
+        "value": "credential-update.example",
         "severity": "high",
-        "source": "URLhaus",
-        "confidence": 88,
-        "tags": ["c2", "ransomware"],
-        "threat_actor": "LockBit",
+        "source": "Phishing-Lab",
+        "confidence": 91,
+        "tags": ["demo", "phishing", "credential-theft"],
+        "threat_actor": None,
         "is_active": True,
     },
     {
         "indicator_type": "URL",
-        "value": "http://phishing-login.tk/paypal/verify",
+        "value": "https://credential-update.example/verify",
         "severity": "high",
-        "source": "PhishTank",
-        "confidence": 92,
-        "tags": ["phishing", "credential-theft"],
+        "source": "Phishing-Lab",
+        "confidence": 89,
+        "tags": ["demo", "phishing"],
         "threat_actor": None,
+        "is_active": True,
+    },
+    {
+        "indicator_type": "URL",
+        "value": "http://payload-download.example/update.exe",
+        "severity": "critical",
+        "source": "Sandbox",
+        "confidence": 97,
+        "tags": ["demo", "malware", "payload"],
+        "threat_actor": "Demo-Campaign-Red",
         "is_active": True,
     },
     {
         "indicator_type": "Hash",
         "value": "d41d8cd98f00b204e9800998ecf8427e",
-        "severity": "critical",
-        "source": "VirusTotal",
-        "confidence": 99,
-        "tags": ["malware", "ransomware", "APT29"],
-        "threat_actor": "APT29",
+        "severity": "high",
+        "source": "Sandbox",
+        "confidence": 82,
+        "tags": ["demo", "malware", "md5"],
+        "threat_actor": None,
+        "is_active": True,
+    },
+    {
+        "indicator_type": "Hash",
+        "value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "severity": "medium",
+        "source": "Malware-Lab",
+        "confidence": 75,
+        "tags": ["demo", "sha256"],
+        "threat_actor": None,
         "is_active": True,
     },
     {
         "indicator_type": "Email",
-        "value": "phisher@spoofed-domain.com",
+        "value": "billing@credential-update.example",
         "severity": "medium",
-        "source": "Sentinel-Internal",
-        "confidence": 70,
-        "tags": ["phishing", "spear-phishing"],
+        "source": "Mail-Gateway",
+        "confidence": 78,
+        "tags": ["demo", "phishing", "invoice"],
         "threat_actor": None,
         "is_active": True,
+    },
+    {
+        "indicator_type": "Email",
+        "value": "alerts@c2-beacon.example",
+        "severity": "low",
+        "source": "Internal-SOC",
+        "confidence": 55,
+        "tags": ["demo", "suspicious-sender"],
+        "threat_actor": None,
+        "is_active": False,
     },
 ]
 
 
-def seed():
-    print(f"🌱 Seeding Cygnal at {BASE_URL} with sample indicators...\n")
+def seed() -> tuple[int, int]:
+    """Add safe demonstration IOCs once and return added/skipped counts."""
+    print(f"Seeding Cygnal at {BASE_URL} with demonstration indicators...\n")
+    added = 0
+    skipped = 0
     try:
-        for indicator in SAMPLE_INDICATORS:
-            response = httpx.post(f"{BASE_URL}/indicators", json=indicator)
-            if response.status_code == 201:
-                data = response.json()
-                print(f"   ✅ [{data['indicator_type']}] {data['value']} (id={data['id']})")
-            else:
-                print(f"   ❌ Failed: {indicator['value']} → {response.status_code}")
-    except httpx.ConnectError:
-        print("   ❌ Error: Could not connect to API. Is the server running?")
+        with httpx.Client(base_url=BASE_URL, timeout=10.0) as client:
+            response = client.get("/indicators", params={"limit": 100})
+            response.raise_for_status()
+            existing = {(item["indicator_type"], item["value"]) for item in response.json()}
 
-    print(f"\n✅ Done! {len(SAMPLE_INDICATORS)} indicators seeded.")
+            for indicator in SAMPLE_INDICATORS:
+                key = (indicator["indicator_type"], indicator["value"])
+                if key in existing:
+                    skipped += 1
+                    print(f"   SKIP [{key[0]}] {key[1]}")
+                    continue
+                response = client.post("/indicators", json=indicator)
+                response.raise_for_status()
+                data = response.json()
+                existing.add(key)
+                added += 1
+                print(f"   ADD  [{data['indicator_type']}] {data['value']} (id={data['id']})")
+    except httpx.HTTPError as exc:
+        print(f"   ERROR: Could not seed the API: {exc}")
+        return added, skipped
+
+    print(f"\nDone: {added} added, {skipped} already present.")
+    return added, skipped
 
 
 if __name__ == "__main__":

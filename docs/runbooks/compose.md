@@ -18,7 +18,7 @@ Services:
 - `ai_analyst`: http://localhost:8001
 - `dashboard`: http://localhost:8501
 - `redis`: localhost:6379
-- `worker`: scheduled IOC refresh every five minutes
+- `worker`: idempotent demo seed, then scheduled IOC refresh every five minutes
 
 ## Verify
 
@@ -31,7 +31,8 @@ docker compose exec -T redis redis-cli ping
 ```
 
 Expected: API and enrichment report `ok`, Streamlit reports `ok`, and Redis
-returns `PONG`.
+returns `PONG`. The initial feed contains varied IP, domain, URL, hash, and
+email examples; rerunning Compose does not duplicate them.
 
 ## Exercise Free Enrichment
 
@@ -89,3 +90,6 @@ The release runner expects the API at http://127.0.0.1:8000 for Schemathesis.
 ```bash
 docker compose down
 ```
+
+Use docker compose down -v only when you intentionally want to reset the
+persisted demonstration database.

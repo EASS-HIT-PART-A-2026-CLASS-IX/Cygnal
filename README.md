@@ -63,6 +63,7 @@ In separate terminals:
 ```bash
 uv run streamlit run frontend/dashboard.py
 uv run uvicorn ai_analyst.main:app --port 8001
+uv run python scripts/seed.py
 uv run python scripts/refresh.py
 ```
 
@@ -87,7 +88,9 @@ Set a strong `JWT_SECRET_KEY` before any non-classroom use.
 docker compose up --build
 ```
 
-Compose starts the API, dashboard, enrichment service, worker, and Redis. See
+Compose starts the API, dashboard, enrichment service, worker, and Redis. The worker
+idempotently loads ten safe, varied demonstration IOCs before its scheduled IP
+refresh, and SQLite data persists in a named Docker volume. See
 [the Compose runbook](docs/runbooks/compose.md) for health and demo commands.
 
 ## Free Enrichment Mode
