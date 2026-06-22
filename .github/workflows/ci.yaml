@@ -1,8 +1,5 @@
 name: CI
 
-env:
-  UV_LOCK_TIMEOUT: 600
-
 on:
   push:
   pull_request:
@@ -26,6 +23,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+          prune-cache: false
       - run: uv sync --frozen
       - run: uvx ruff check .
       - run: uvx ruff format --check .
@@ -37,16 +35,28 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
         run: |
           uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000 &
+          echo $! > "$RUNNER_TEMP/cygnal-api.pid"
           for attempt in {1..20}; do
-            curl --fail http://127.0.0.1:8000/health && break
+            if curl --fail http://127.0.0.1:8000/health; then
+              exit 0
+            fi
             sleep 1
           done
-      - run: >-
+          echo "API did not become healthy" >&2
+          exit 1
+      - name: Validate API contract
+        run: >-
           uvx schemathesis run http://127.0.0.1:8000/openapi.json
           --checks status_code_conformance,response_schema_conformance
           --include-method GET --exclude-path /auth/me
           --phases coverage,fuzzing --max-examples 5
           --generation-database :memory:
+      - name: Stop API
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/cygnal-api.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/cygnal-api.pid")" 2>/dev/null || true
+          fi
       - run: uvx --from mkdocs-material mkdocs build --strict
       - run: uv run --with pdoc pdoc backend -o site/api
       - run: uv run --no-sync --with "mcp[cli]>=1.1.0" python -m scripts.mcp_probe
