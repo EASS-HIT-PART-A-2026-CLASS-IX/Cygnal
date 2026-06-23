@@ -23,7 +23,7 @@ microservice.
 | --- | --- | --- |
 | `api` | FastAPI, SQLModel, SQLite | IOC validation, CRUD, auth, exports, contracts |
 | `dashboard` | Streamlit, Plotly | User-facing analyst workspace |
-| `worker` | asyncio, httpx | Mock or AbuseIPDB IOC ingestion |
+| `worker` | asyncio, httpx | AbuseIPDB ingestion with an offline fallback dataset |
 | `ai_analyst` | FastAPI | Free structured IOC scoring and optional Ollama narrative |
 | `redis` | Redis 7 | Rate limiting and worker idempotency |
 
@@ -58,12 +58,23 @@ cp .env.example .env
 uv run uvicorn backend.main:app --reload
 ```
 
-In separate terminals:
+Run the dashboard and enrichment API in separate terminals:
 
 ```bash
 uv run streamlit run frontend/dashboard.py
 uv run uvicorn ai_analyst.main:app --port 8001
+```
+
+After the API is healthy, load the demonstration dataset once:
+
+```bash
 uv run python scripts/seed.py
+```
+
+Local worker refresh requires Redis. Start Redis, then run one refresh:
+
+```bash
+docker compose up -d redis
 uv run python scripts/refresh.py
 ```
 
@@ -105,18 +116,57 @@ database history into a structured result containing:
 - first-seen/history information;
 - recommended analyst actions.
 
-Ollama is optional. To add a local-model explanation:
+Ollama is optional and affects only `POST /analyze` on the `ai_analyst`
+service. Without Ollama, analysis remains fully offline with
+`analysis_mode: "deterministic"` and `local_model_explanation: null`. When
+enabled, the deterministic score and recommendations remain authoritative;
+Ollama only adds a local narrative explanation, returning
+`analysis_mode: "deterministic+ollama"` and a populated
+`local_model_explanation`.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `OLLAMA_BASE_URL` | Enables Ollama and selects its endpoint | Empty (disabled) |
+| `OLLAMA_MODEL` | Local model used for the explanation | `llama3.2:3b` |
+| `OLLAMA_TIMEOUT_SECONDS` | Maximum Ollama request time | `5` |
+
+Ollama must run separately on the host; Docker Compose does not start it.
 
 ```bash
+# Unix: local Python
 ollama pull llama3.2:3b
-# Local uv run:
 export OLLAMA_BASE_URL=http://localhost:11434
-# Compose on Docker Desktop:
+
+# Unix: Docker Desktop
 export OLLAMA_BASE_URL=http://host.docker.internal:11434
+docker compose up --build -d ai_analyst
 ```
 
-If Ollama is unavailable, Cygnal automatically returns the complete deterministic
-assessment. The local model never replaces or changes the authoritative score.
+```powershell
+# Windows PowerShell: local Python
+ollama pull llama3.2:3b
+$env:OLLAMA_BASE_URL="http://localhost:11434"
+
+# Windows PowerShell: Docker Desktop
+$env:OLLAMA_BASE_URL="http://host.docker.internal:11434"
+docker compose up --build -d ai_analyst
+```
+
+With the backend and enrichment service running, verify an existing indicator:
+
+```powershell
+$result = Invoke-RestMethod -Method Post -Uri http://localhost:8001/analyze `
+  -ContentType application/json -Body '{"indicator_id":1}'
+$result.analysis_mode  # expected: deterministic+ollama
+```
+
+## Scope and Limitations
+
+- SQLite persistence and fixture credentials are intended for local academic and
+  demonstration use.
+- The dashboard currently retrieves the first 100 indicators from the API.
+- Ollama and AbuseIPDB are optional; deterministic enrichment and offline worker
+  fallback data remain available without them.
 
 ## Tests and CI/CD
 
