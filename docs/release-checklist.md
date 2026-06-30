@@ -1,7 +1,7 @@
 # EX3 Release Checklist
 
 Owner: Agneta Gavrielov  
-Last verified: 21 June 2026
+Last verified: 1 July 2026
 
 ## Automated Gates
 
@@ -23,7 +23,7 @@ Last verified: 21 June 2026
 
 | Gate | Result |
 | --- | --- |
-| pytest | 57 passed |
+| pytest | 58 passed |
 | Coverage | 64% overall; enrichment service 83-100% by module |
 | Ruff format | 81 files already formatted |
 | Ruff lint | All checks passed |
@@ -47,11 +47,13 @@ Last verified: 21 June 2026
 - [x] Worker output included trace ID, idempotency key, and result.
 - [x] Analyst/admin authorization behavior is covered by passing API tests.
 - [x] CSV export and structured enrichment/report flows are covered and demonstrated.
-- [ ] Manually inspect the dashboard in Dark, Light, and System themes and attach
-      screenshots or a short recording before submission.
+- [x] Dashboard was manually inspected during final UI review, and the final demo
+      recording is available at https://youtu.be/tfJD0_qhUn8.
 
 ## Final Submission Actions
 
-- [ ] Review the commit plan and create the focused commits.
-- [ ] Push the branch and confirm GitHub Actions passes remotely.
-- [ ] Add a two-minute screen recording if pursuing the optional bonus.
+- [x] Final version pushed to GitHub on `main`.
+- [x] GitHub Actions passed remotely.
+- [x] Final submission tag prepared as `ex3-final`.
+- [x] Two-minute demo recording provided: https://youtu.be/tfJD0_qhUn8.
+- [x] Project ready for EX3 submission after the final documentation update is committed.

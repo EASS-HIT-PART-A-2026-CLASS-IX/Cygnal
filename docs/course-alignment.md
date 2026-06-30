@@ -40,10 +40,10 @@ EX1-EX3 requirements.
 | Pagination, ETag, CSV | Fully implemented | Indicator contracts and tests | Low |
 | Ruff, mypy, pytest, Schemathesis, docs | Fully implemented | CI and release runner | Low |
 | FastMCP bridge | Implemented | `scripts/indicators_mcp.py`, probe script | Medium: probe is lightweight |
-| Two-minute recording bonus | Missing | No recording in repository | Bonus only |
+| Two-minute recording bonus | Provided | Demo video: https://youtu.be/tfJD0_qhUn8 | Bonus only |
 
 ## Remaining Academic Risks
 
-- The CI workflow change must be committed and pushed before submission.
-- Record or attach a short final demo if pursuing the optional bonus.
 - Replace classroom JWT credentials/secrets for any environment beyond the local demo.
+- The FastMCP bridge is intentionally lightweight and used as a small integration
+  enhancement rather than a primary product workflow.
